@@ -4,6 +4,16 @@
 <h1>Välj hållplats</h1>
 <p class="intro">Se vilka bussar som går från din hållplats och när nästa avgår.</p>
 
+<section aria-labelledby="linjer-rubrik">
+  <h2 id="linjer-rubrik">Linjer i Härnösand</h2>
+  <ul class="linjeval">
+    {% for line in lines %}
+    <li><a href="/linje/{{ line }}" aria-label="Tidtabell för linje {{ line }}">
+      <span class="linjebricka stor">{{ line }}</span></a></li>
+    {% endfor %}
+  </ul>
+</section>
+
 <div class="sokfalt">
   <label for="sok">Sök hållplats</label>
   <input type="search" id="sok" name="sok" placeholder="Skriv t.ex. Central eller Myran"

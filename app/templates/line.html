@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Linje {{ line }} - Gamla tidtabeller{% endblock %}
+{% block content %}
+<nav class="brodsmulor"><a href="/">&larr; Alla hållplatser</a></nav>
+<h1><span class="linjebricka stor">{{ line }}</span> Linje {{ line }}</h1>
+
+<nav class="dagflikar" aria-label="Välj dagtyp">
+  {% for key, label in day_types %}
+  <a href="/linje/{{ line }}?typ={{ key }}"
+     {% if key == typ %}aria-current="page" class="aktiv"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% if rep_date is none %}
+<p class="varning">Linjen har ingen trafik denna dagtyp så långt tidtabellen sträcker sig.</p>
+{% else %}
+<p class="gallerdatum">
+  Tidtabell för <strong>{{ rep_date_sv }}</strong>.
+  {% if rep_in_future %}<span class="varning-inline">Ingen trafik tidigare - nästa trafikdag visas.</span>{% endif %}
+  {% if change_date_sv %}<br>Annan tabell gäller från och med {{ change_date_sv }}.{% endif %}
+</p>
+
+{% for d in directions %}
+<section aria-labelledby="riktning-{{ d.direction_id }}">
+  <h2 id="riktning-{{ d.direction_id }}">Mot {{ d.destinations | join(' / ') }}</h2>
+  {% if d.variant_letters %}
+  <p class="variantforklaring">
+    {% for dest, letter in d.variant_letters.items() %}
+    <span><strong>{{ letter }}</strong> = mot {{ dest }}</span>
+    {% endfor %}
+  </p>
+  {% endif %}
+  <div class="tabellrull" tabindex="0" role="region"
+       aria-label="Tidtabell mot {{ d.destinations | join(' / ') }} (rullbar i sidled)">
+    <table class="tidtabell">
+      <thead>
+        <tr>
+          <th scope="col" class="hallplatskol">Hållplats</th>
+          {% for t in d.trips %}
+          <th scope="col">{% if t.variant is defined %}{{ t.variant }}{% else %}&nbsp;{% endif %}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in d.stops %}
+        {% set si = loop.index0 %}
+        <tr>
+          <th scope="row" class="hallplatskol"><a href="/hallplats/{{ s.station_id }}">{{ s.name }}</a></th>
+          {% for t in d.trips %}
+          <td>{{ t.times[si] or "–" }}</td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endfor %}
+{% endif %}
+{% endblock %}

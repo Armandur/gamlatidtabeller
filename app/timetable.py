@@ -33,6 +33,22 @@ GROUP BY r.short_name, r.is_local, t.destination
 """
 
 
+# Hela tidtabellen for en linje pa en trafikdag: alla halltider,
+# grupperade per riktning i Python-lagret.
+_LINE_DAY_SQL = """
+SELECT t.trip_id, t.direction_id, t.destination, st.stop_seq, st.departure_s,
+       COALESCE(NULLIF(s.parent_station, ''), s.stop_id) AS station_id,
+       s.name AS stop_name
+FROM trips t
+JOIN routes r ON r.route_id = t.route_id
+JOIN service_dates sd ON sd.service_id = t.service_id
+JOIN stop_times st ON st.trip_id = t.trip_id
+JOIN stops s ON s.stop_id = st.stop_id
+WHERE r.short_name = :line AND r.is_local = 1 AND sd.date = :date
+ORDER BY t.trip_id, st.stop_seq
+"""
+
+
 def _midnight(d: date) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=config.TZ)
 
@@ -102,3 +118,143 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
             })
     departures.sort(key=lambda d: d["when"])
     return departures[:limit]
+
+
+def local_lines(db: sqlite3.Connection) -> list[str]:
+    rows = db.execute("SELECT short_name FROM routes WHERE is_local = 1").fetchall()
+    return sorted({r["short_name"] for r in rows}, key=_line_sort_key)
+
+
+def _align_stop_orders(sequences: list[list[str]]) -> tuple[list[str], list[list[int]]]:
+    """Justera turernas hallplatsfoljder mot en gemensam radlista.
+
+    Monoton matchning: varje halltid tilldelas nasta rad (efter turens
+    forra) med samma hallplats, annars skapas en ny rad dar. Klarar
+    overhoppade hallplatser, grenvarianter och slinglinjer dar samma
+    hallplats passeras flera ganger per tur (blir da flera rader).
+
+    Returnerar (rader, tilldelning per tur: radindex per halltid).
+    """
+    rows: list[str] = []
+    assignments: list[list[int]] = []
+    for seq in sequences:
+        last = -1
+        assign = []
+        for sid in seq:
+            j = next((k for k in range(last + 1, len(rows)) if rows[k] == sid), None)
+            if j is None:
+                j = last + 1
+                rows.insert(j, sid)
+                for earlier in assignments:
+                    for i, v in enumerate(earlier):
+                        if v >= j:
+                            earlier[i] = v + 1
+            last = j
+            assign.append(j)
+        assignments.append(assign)
+    return rows, assignments
+
+
+def line_table(db: sqlite3.Connection, line: str, service_date: date) -> list[dict]:
+    """Tidtabellsmatris per riktning: hallplatser som rader, turer som kolumner."""
+    by_trip: dict[str, dict] = {}
+    for r in db.execute(_LINE_DAY_SQL, {"line": line, "date": service_date.isoformat()}):
+        trip = by_trip.setdefault(r["trip_id"], {
+            "direction_id": r["direction_id"], "destination": r["destination"],
+            "stops": []})
+        trip["stops"].append((r["station_id"], r["stop_name"], r["departure_s"]))
+
+    directions = []
+    for dir_id in sorted({t["direction_id"] for t in by_trip.values()}):
+        trips = [t for t in by_trip.values() if t["direction_id"] == dir_id]
+        trips.sort(key=lambda t: (len(t["stops"]), -t["stops"][0][2]), reverse=True)
+        order, assignments = _align_stop_orders(
+            [[sid for sid, _, _ in t["stops"]] for t in trips])
+        names = {sid: name for t in trips for sid, name, _ in t["stops"]}
+
+        columns = []
+        for t, assign in zip(trips, assignments):
+            times = [""] * len(order)
+            for (_, _, dep_s), row_idx in zip(t["stops"], assign):
+                times[row_idx] = f"{dep_s // 3600 % 24:02d}:{dep_s % 3600 // 60:02d}"
+            columns.append({"destination": t["destination"],
+                            "first_departure_s": t["stops"][0][2],
+                            "times": times})
+        # Langsta turen forst gav stabilast radordning; visa kolumnerna
+        # i avgangstidsordning.
+        columns.sort(key=lambda c: c["first_departure_s"])
+
+        destinations = sorted({t["destination"] for t in trips})
+        directions.append({
+            "direction_id": dir_id,
+            "destinations": destinations,
+            "stops": [{"station_id": sid, "name": names[sid]} for sid in order],
+            "trips": columns,
+        })
+    return directions
+
+
+def feed_horizon(db: sqlite3.Connection) -> date | None:
+    row = db.execute("SELECT max(date) AS d FROM service_dates").fetchone()
+    return date.fromisoformat(row["d"]) if row["d"] else None
+
+
+DAY_TYPES = {"vardag": (0, 1, 2, 3, 4), "lordag": (5,), "sondag": (6,)}
+
+
+def find_service_day(db: sqlite3.Connection, line: str, day_type: str,
+                     today: date) -> date | None:
+    """Forsta datum (fran idag) av given dagtyp dar linjen har trafik."""
+    weekdays = DAY_TYPES[day_type]
+    horizon = feed_horizon(db)
+    if horizon is None:
+        return None
+    d = today
+    while d <= horizon:
+        if d.weekday() in weekdays and _line_runs_on(db, line, d):
+            return d
+        d += timedelta(days=1)
+    return None
+
+
+def _line_runs_on(db: sqlite3.Connection, line: str, d: date) -> bool:
+    row = db.execute(
+        "SELECT 1 FROM trips t JOIN routes r ON r.route_id = t.route_id "
+        "JOIN service_dates sd ON sd.service_id = t.service_id "
+        "WHERE r.short_name = ? AND r.is_local = 1 AND sd.date = ? LIMIT 1",
+        (line, d.isoformat())).fetchone()
+    return row is not None
+
+
+def _day_signature(db: sqlite3.Connection, line: str, d: date) -> frozenset:
+    rows = db.execute(
+        "SELECT t.direction_id, t.destination, st.departure_s FROM trips t "
+        "JOIN routes r ON r.route_id = t.route_id "
+        "JOIN service_dates sd ON sd.service_id = t.service_id "
+        "JOIN stop_times st ON st.trip_id = t.trip_id "
+        "WHERE r.short_name = ? AND r.is_local = 1 AND sd.date = ?",
+        (line, d.isoformat())).fetchall()
+    return frozenset((r["direction_id"], r["destination"], r["departure_s"]) for r in rows)
+
+
+def next_table_change(db: sqlite3.Connection, line: str, ref_date: date) -> date | None:
+    """Nasta datum (samma veckodag) da linjens tabell skiljer sig fran ref_date."""
+    horizon = feed_horizon(db)
+    if horizon is None:
+        return None
+    ref_sig = _day_signature(db, line, ref_date)
+    d = ref_date + timedelta(days=7)
+    while d <= horizon:
+        if _day_signature(db, line, d) != ref_sig:
+            return d
+        d += timedelta(days=7)
+    return None
+
+
+_WEEKDAYS_SV = ["måndag", "tisdag", "onsdag", "torsdag", "fredag", "lördag", "söndag"]
+_MONTHS_SV = ["januari", "februari", "mars", "april", "maj", "juni", "juli",
+              "augusti", "september", "oktober", "november", "december"]
+
+
+def format_date_sv(d: date) -> str:
+    return f"{_WEEKDAYS_SV[d.weekday()]} {d.day} {_MONTHS_SV[d.month - 1]}"

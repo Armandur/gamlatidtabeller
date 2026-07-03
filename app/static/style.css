@@ -179,3 +179,84 @@ h2 { font-size: 1.25rem; margin: 1.6rem 0 0.4rem; }
 @media (min-width: 40rem) {
   h1 { font-size: 2rem; }
 }
+
+/* Linjevyn */
+.linjebricka.stor { font-size: 1.4rem; padding: 0.2rem 0.7rem; }
+
+.dagflikar {
+  display: flex;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+.dagflikar a {
+  flex: 1;
+  text-align: center;
+  padding: 0.7rem 0.4rem;
+  border: 2px solid var(--bla);
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.dagflikar a.aktiv {
+  background: var(--bla);
+  color: #fff;
+}
+
+.gallerdatum { color: var(--gra); }
+.varning, .varning-inline {
+  background: var(--gul);
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  color: var(--mork);
+}
+.varning { display: block; padding: 0.8rem; }
+
+.variantforklaring { color: var(--gra); }
+.variantforklaring span { margin-right: 1rem; white-space: nowrap; }
+
+.tabellrull {
+  overflow-x: auto;
+  border: 1px solid var(--ljusgra);
+  border-radius: 8px;
+  max-width: 100%;
+}
+.tabellrull:focus-visible { outline: 3px solid var(--fokus); }
+
+.tidtabell {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.tidtabell th, .tidtabell td {
+  padding: 0.45rem 0.55rem;
+  text-align: right;
+  border-bottom: 1px solid var(--ljusgra);
+}
+.tidtabell thead th { background: var(--bla); color: #fff; }
+.tidtabell tbody tr:nth-child(even) { background: #f5f8fb; }
+.tidtabell .hallplatskol {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  text-align: left;
+  font-weight: 600;
+  border-right: 2px solid var(--ljusgra);
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tidtabell thead .hallplatskol { background: var(--bla); }
+.tidtabell tbody tr:nth-child(even) .hallplatskol { background: #f5f8fb; }
+
+/* Linjesektionen pa startsidan */
+.linjeval {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+.linjeval a {
+  display: inline-block;
+  text-decoration: none;
+}

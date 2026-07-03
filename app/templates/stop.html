@@ -9,7 +9,12 @@
   <ul class="linjelista">
     {% for l in lines %}
     <li>
-      <span class="linjebricka{% if not l.is_local %} regional{% endif %}">{{ l.line }}</span>
+      {% if l.is_local %}
+      <a href="/linje/{{ l.line }}" aria-label="Tidtabell för linje {{ l.line }}">
+        <span class="linjebricka">{{ l.line }}</span></a>
+      {% else %}
+      <span class="linjebricka regional">{{ l.line }}</span>
+      {% endif %}
       <span class="linjemot">mot {{ l.destinations[:2] | join(' / ') }}</span>
     </li>
     {% endfor %}

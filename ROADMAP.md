@@ -10,9 +10,12 @@
       server-renderad lista), hållplatssida med linjer + kommande
       avgångar över dygnsgräns, 30s-polling som grund för realtid
 
+- [x] Iteration 3: linjevy per riktning och dagtyp (vardag/lördag/söndag),
+      tabellmatris med grenvariantmarkering, upptäcker tabellbyten
+      (t.ex. sommar->höst) och linjer utan trafik i perioden
+
 ## Kvar
 
-- [ ] Iteration 3: linjevy per riktning och servicedag, sommarmarkering
 - [ ] Iteration 4: realtid - GTFS-RT-poller (TripUpdates, ServiceAlerts),
       realtidsbadges, störningsbanner, snygg fallback till statisk tid
 - [ ] Iteration 5: utskrift mobil - PDF för en hållplats (WeasyPrint, QR)
