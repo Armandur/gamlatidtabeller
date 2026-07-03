@@ -260,3 +260,42 @@ h2 { font-size: 1.25rem; margin: 1.6rem 0 0.4rem; }
   display: inline-block;
   text-decoration: none;
 }
+
+/* Realtid och storningar */
+.storning {
+  background: var(--gul);
+  border-left: 5px solid #8a6d00;
+  border-radius: 6px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.8rem 0;
+}
+
+.rt-prick {
+  display: inline-block;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: #1a7a2e;
+  margin-right: 0.3rem;
+  vertical-align: 0.15rem;
+}
+
+.gammal-tid {
+  color: var(--gra);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.avgangslista li.installd .tid,
+.avgangslista li.installd .mot { text-decoration: line-through; color: var(--gra); }
+.installd-badge {
+  display: inline-block;
+  background: #b00020;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0 0.4rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}

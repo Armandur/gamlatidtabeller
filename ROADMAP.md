@@ -14,10 +14,13 @@
       tabellmatris med grenvariantmarkering, upptäcker tabellbyten
       (t.ex. sommar->höst) och linjer utan trafik i perioden
 
+- [x] Iteration 4: realtid - GTFS-RT-poller var 20:e sekund (TripUpdates
+      + ServiceAlerts i minnet), förseningar/inställda turer i
+      avgångslistan, störningsbanner på hållplats- och linjesidor,
+      automatisk fallback till tidtabellstid när feeden är nere/gammal
+
 ## Kvar
 
-- [ ] Iteration 4: realtid - GTFS-RT-poller (TripUpdates, ServiceAlerts),
-      realtidsbadges, störningsbanner, snygg fallback till statisk tid
 - [ ] Iteration 5: utskrift mobil - PDF för en hållplats (WeasyPrint, QR)
 - [ ] Iteration 6: utskriftsstudio skrivbord - karta + lista, multival,
       batch-PDF A4/A5, skärmärken

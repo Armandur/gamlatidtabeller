@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 
 from app import config, timetable
 from app.database import DatabaseMissing, get_meta, open_db
+from app.services import realtime
 from app.services.trafiklab import cache_age_hours
 
 router = APIRouter(prefix="/api")
@@ -30,7 +31,10 @@ def departures(station_id: str, limit: int = 20):
         if station is None:
             raise HTTPException(404, "Hållplatsen finns inte")
         deps = timetable.upcoming_departures(db, station_id, now, min(limit, 50))
+        route_ids, stop_ids = timetable.station_rt_keys(db, station_id)
+    realtime_ok = realtime.enrich_departures(deps, now)
+    alerts = realtime.alerts_for(route_ids, stop_ids)
     for d in deps:
         d["when"] = d["when"].isoformat(timespec="minutes")
     return {"station": station["name"], "generated_at": now.strftime("%H:%M"),
-            "departures": deps}
+            "realtime_ok": realtime_ok, "alerts": alerts, "departures": deps}

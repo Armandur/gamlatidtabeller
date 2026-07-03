@@ -9,8 +9,8 @@ from app import config
 # OBS: en trafikdags turer kan ga efter midnatt (departure_s > 86400),
 # darfor slas gardagens trafikdag ihop med dagens vid uppslag.
 _DEPARTURES_SQL = """
-SELECT st.departure_s, r.short_name AS line, r.is_local, t.destination,
-       t.trip_id, s.platform_code
+SELECT st.departure_s, st.stop_seq, r.short_name AS line, r.is_local, t.destination,
+       t.trip_id, t.route_id, s.stop_id AS platform_stop_id, s.platform_code
 FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
@@ -91,11 +91,11 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
     today = now.date()
     now_s = int((now - _midnight(today)).total_seconds())
 
-    # (trafikdag, fran-sekund): gardagens efter midnatt-turer, dagens
-    # aterstaende, morgondagens fran start - tills limit ar fylld.
-    plan = [(today - timedelta(days=1), now_s + 86400),
-            (today, now_s),
-            (today + timedelta(days=1), 0)]
+    # (trafikdag, fran-sekund): gardagens efter midnatt-turer, sedan dag
+    # for dag upp till en vecka framat tills limit ar fylld - hallplatser
+    # utan helgtrafik ska visa mandagens turer i stallet for tom lista.
+    plan = [(today - timedelta(days=1), now_s + 86400)]
+    plan += [(today + timedelta(days=k), now_s if k == 0 else 0) for k in range(7)]
     departures = []
     for service_date, from_s in plan:
         if len(departures) >= limit:
@@ -105,16 +105,22 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
             "from_s": from_s, "limit": limit}).fetchall()
         for r in rows:
             when = _midnight(service_date) + timedelta(seconds=r["departure_s"])
+            days_ahead = (when.date() - today).days
             departures.append({
                 "when": when,
                 "time": when.strftime("%H:%M"),
                 "in_minutes": max(0, int((when - now).total_seconds() // 60)),
-                "other_day": when.date() != today,
+                "day_label": ("" if days_ahead == 0 else
+                              "i morgon" if days_ahead == 1 else
+                              _WEEKDAYS_SV[when.weekday()]),
                 "line": r["line"],
                 "is_local": bool(r["is_local"]),
                 "destination": r["destination"],
                 "platform": r["platform_code"],
                 "trip_id": r["trip_id"],
+                "route_id": r["route_id"],
+                "stop_seq": r["stop_seq"],
+                "platform_stop_id": r["platform_stop_id"],
             })
     departures.sort(key=lambda d: d["when"])
     return departures[:limit]
@@ -258,3 +264,20 @@ _MONTHS_SV = ["januari", "februari", "mars", "april", "maj", "juni", "juli",
 
 def format_date_sv(d: date) -> str:
     return f"{_WEEKDAYS_SV[d.weekday()]} {d.day} {_MONTHS_SV[d.month - 1]}"
+
+
+def station_rt_keys(db: sqlite3.Connection, station_id: str) -> tuple[set[str], set[str]]:
+    """(route_ids, stop_ids) for matchning mot ServiceAlerts informed_entity."""
+    stop_ids = {r["stop_id"] for r in db.execute(
+        "SELECT stop_id FROM stops WHERE parent_station = ? OR stop_id = ?",
+        (station_id, station_id))}
+    route_ids = {r["route_id"] for r in db.execute(
+        "SELECT DISTINCT t.route_id FROM stop_times st JOIN trips t ON t.trip_id = st.trip_id "
+        "JOIN stops s ON s.stop_id = st.stop_id "
+        "WHERE s.parent_station = ? OR s.stop_id = ?", (station_id, station_id))}
+    return route_ids, stop_ids
+
+
+def line_route_ids(db: sqlite3.Connection, line: str) -> set[str]:
+    return {r["route_id"] for r in db.execute(
+        "SELECT route_id FROM routes WHERE short_name = ? AND is_local = 1", (line,))}

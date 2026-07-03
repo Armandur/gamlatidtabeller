@@ -4,6 +4,13 @@
 <nav class="brodsmulor"><a href="/">&larr; Alla hållplatser</a></nav>
 <h1><span class="linjebricka stor">{{ line }}</span> Linje {{ line }}</h1>
 
+{% for a in alerts %}
+<div class="storning" role="alert">
+  <strong>{{ a.header }}</strong>
+  {% if a.description %}<br>{{ a.description }}{% endif %}
+</div>
+{% endfor %}
+
 <nav class="dagflikar" aria-label="Välj dagtyp">
   {% for key, label in day_types %}
   <a href="/linje/{{ line }}?typ={{ key }}"

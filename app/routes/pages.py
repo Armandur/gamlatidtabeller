@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, Request
 from app import config, timetable
 from app.database import get_meta, open_db
 from app.deps import templates
+from app.services import realtime
 
 router = APIRouter()
 
@@ -38,6 +39,8 @@ def line_page(request: Request, line: str, typ: str = "vardag"):
         rep_date = timetable.find_service_day(db, line, typ, today)
         directions = timetable.line_table(db, line, rep_date) if rep_date else []
         change_date = timetable.next_table_change(db, line, rep_date) if rep_date else None
+        route_ids = timetable.line_route_ids(db, line)
+    alerts = realtime.alerts_for(route_ids, set())
 
     # Varna bara nar linjen hoppar over nasta naturliga dag av dagtypen
     # (t.ex. 590 som saknar sommartrafik) - inte nar rep_date bara ar
@@ -67,6 +70,7 @@ def line_page(request: Request, line: str, typ: str = "vardag"):
         "rep_in_future": skips_ahead,
         "change_date_sv": timetable.format_date_sv(change_date) if change_date else None,
         "directions": directions,
+        "alerts": alerts,
     })
 
 
@@ -79,10 +83,15 @@ def stop_page(request: Request, station_id: str):
             raise HTTPException(404, "Hållplatsen finns inte")
         lines = timetable.lines_at_station(db, station_id)
         departures = timetable.upcoming_departures(db, station_id, now)
+        route_ids, stop_ids = timetable.station_rt_keys(db, station_id)
+    realtime_ok = realtime.enrich_departures(departures, now)
+    alerts = realtime.alerts_for(route_ids, stop_ids)
     return templates.TemplateResponse(request, "stop.html", {
         **_base_context(request),
         "station": station,
         "lines": lines,
         "departures": departures,
+        "realtime_ok": realtime_ok,
+        "alerts": alerts,
         "now_time": now.strftime("%H:%M"),
     })

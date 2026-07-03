@@ -21,6 +21,16 @@ ingen SQLAlchemy). Beroenden hanteras med `uv` (`uv sync`, `uv run`).
    (temp-fil + atomiskt byte). Körbar som `python -m app.gtfs_import`.
 3. `app/main.py` har lifespan som bygger db vid start om den saknas och
    kör nattlig refresh 04:30 (Europe/Stockholm).
+4. `app/services/realtime.py` pollar GTFS-RT (TripUpdates +
+   ServiceAlerts) var 20:e sekund med RT-nyckeln (hög kvot, ofarligt).
+   Allt hålls i minnet i modulsingletonen `state`; referenserna byts
+   atomiskt så läsare behöver inga lås. Data äldre än 90 s räknas som
+   otillgänglig -> UI faller tillbaka på tidtabellstid.
+   `enrich_departures()` lägger realtidsfält på avgångar (matchar
+   stop_time_update exakt på stop_id/seq, annars senaste före stoppet -
+   förseningar propagerar framåt enligt GTFS-RT-semantiken).
+   ServiceAlerts dedupliceras per rubrik (Din Tur publicerar lång+kort
+   variant av samma störning).
 
 ## Scope-filtret
 

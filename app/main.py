@@ -11,6 +11,7 @@ from app import config, gtfs_import
 from app.database import DatabaseMissing
 from app.deps import templates
 from app.routes import api, pages
+from app.services import realtime
 
 log = logging.getLogger(__name__)
 
@@ -39,9 +40,14 @@ async def lifespan(app: FastAPI):
     # Bygg databasen vid start om den saknas men zip-cachen finns
     if not config.DB_PATH.exists() and config.GTFS_ZIP_PATH.exists():
         await asyncio.to_thread(gtfs_import.build_database)
-    task = asyncio.create_task(_nightly_refresh_loop())
+    tasks = [asyncio.create_task(_nightly_refresh_loop())]
+    if config.TRAFIKLAB_RT_KEY:
+        tasks.append(asyncio.create_task(realtime.poll_loop()))
+    else:
+        log.warning("TRAFIKLAB_RT_KEY saknas - realtid avstangd")
     yield
-    task.cancel()
+    for task in tasks:
+        task.cancel()
 
 
 app = FastAPI(title="Gamla tidtabeller", lifespan=lifespan)
