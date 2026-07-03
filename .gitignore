@@ -1,0 +1,8 @@
+.env
+data/
+tmp/
+dev.log
+__pycache__/
+*.pyc
+.venv/
+trafiklabs-api-keys
