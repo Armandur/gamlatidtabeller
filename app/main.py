@@ -3,11 +3,14 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import config, gtfs_import
-from app.database import DatabaseMissing, get_meta
-from app.services.trafiklab import cache_age_hours
+from app.database import DatabaseMissing
+from app.deps import templates
+from app.routes import api, pages
 
 log = logging.getLogger(__name__)
 
@@ -42,15 +45,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Gamla tidtabeller", lifespan=lifespan)
+app.include_router(pages.router)
+app.include_router(api.router)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-@app.get("/api/status")
-def status():
-    """Datastatus: feedversion, alder pa cache och databas."""
-    try:
-        meta = get_meta()
-    except DatabaseMissing:
-        return {"ok": False, "detail": "Databasen ar inte byggd an"}
-    age = cache_age_hours()
-    return {"ok": True, "zip_cache_age_hours": round(age, 1) if age is not None else None,
-            **meta}
+@app.exception_handler(DatabaseMissing)
+def database_missing(request: Request, exc: DatabaseMissing):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"ok": False, "detail": "Tidtabellsdatan är inte laddad än"},
+                            status_code=503)
+    return templates.TemplateResponse(request, "error.html", {
+        "request": request,
+        "message": "Tidtabellsdatan är inte laddad än. Försök igen om en stund.",
+    }, status_code=503)

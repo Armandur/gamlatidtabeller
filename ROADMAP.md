@@ -6,10 +6,12 @@
       import till SQLite (scope: LOCAL_LINES + alla avgångar vid deras
       hållplatser), nattlig refresh, /api/status
 
+- [x] Iteration 2: mobil hållplatsvy - fritextsök (klientfiltrerad
+      server-renderad lista), hållplatssida med linjer + kommande
+      avgångar över dygnsgräns, 30s-polling som grund för realtid
+
 ## Kvar
 
-- [ ] Iteration 2: mobil hållplatsvy - fritextsök, hållplatssida med
-      linjer + kommande avgångar (tidtabellstid), servicedagslogik
 - [ ] Iteration 3: linjevy per riktning och servicedag, sommarmarkering
 - [ ] Iteration 4: realtid - GTFS-RT-poller (TripUpdates, ServiceAlerts),
       realtidsbadges, störningsbanner, snygg fallback till statisk tid

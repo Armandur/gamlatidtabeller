@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ station['name'] }} - Gamla tidtabeller{% endblock %}
+{% block content %}
+<nav class="brodsmulor"><a href="/">&larr; Alla hållplatser</a></nav>
+<h1>{{ station['name'] }}</h1>
+
+<section aria-labelledby="linjer-rubrik">
+  <h2 id="linjer-rubrik" class="synligt-dold">Linjer vid hållplatsen</h2>
+  <ul class="linjelista">
+    {% for l in lines %}
+    <li>
+      <span class="linjebricka{% if not l.is_local %} regional{% endif %}">{{ l.line }}</span>
+      <span class="linjemot">mot {{ l.destinations[:2] | join(' / ') }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section aria-labelledby="avgangar-rubrik">
+  <h2 id="avgangar-rubrik">Nästa avgångar</h2>
+  <p class="uppdaterad">Visar tidtabellstid. Uppdaterad <span id="uppdaterad-kl">{{ now_time }}</span>.</p>
+  <ol class="avgangslista" id="avgangslista" aria-live="polite">
+    {% for d in departures %}
+    <li>
+      <span class="tid">{{ d.time }}</span>
+      <span class="linjebricka{% if not d.is_local %} regional{% endif %}">{{ d.line }}</span>
+      <span class="mot">mot {{ d.destination }}
+        {%- if d.platform %} <span class="lage">läge {{ d.platform }}</span>{% endif %}
+        {%- if d.other_day %} <span class="annandag">i morgon</span>{% endif %}
+      </span>
+      <span class="om">{% if d.in_minutes < 60 and not d.other_day %}om {{ d.in_minutes }} min{% endif %}</span>
+    </li>
+    {% else %}
+    <li class="tomt">Inga kommande avgångar hittades.</li>
+    {% endfor %}
+  </ol>
+</section>
+{% endblock %}
+{% block scripts %}
+<script src="/static/utils.js"></script>
+<script>window.STATION_ID = {{ station['stop_id'] | tojson }};</script>
+<script src="/static/stop.js"></script>
+{% endblock %}

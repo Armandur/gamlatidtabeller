@@ -1,0 +1,181 @@
+/* Mobil-forst, stor text och hog kontrast - malgruppen inkluderar
+   aldre och synskadade. Kontrastvarden haller WCAG AA mot vitt. */
+
+:root {
+  --bla: #00427a;        /* 9.4:1 mot vitt */
+  --mork: #1a1a1a;
+  --gra: #575757;        /* 7:1 mot vitt */
+  --ljusgra: #ececec;
+  --gul: #ffd53d;
+  --fokus: #b3005e;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  color: var(--mork);
+  background: #fff;
+}
+
+a { color: var(--bla); }
+a:focus-visible, input:focus-visible {
+  outline: 3px solid var(--fokus);
+  outline-offset: 2px;
+}
+
+.hoppa {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--bla);
+  color: #fff;
+  padding: 0.75rem 1rem;
+  z-index: 10;
+}
+.hoppa:focus { left: 0; }
+
+.topp {
+  background: var(--bla);
+  color: #fff;
+  padding: 0.9rem 1rem;
+}
+.brand {
+  color: #fff;
+  font-size: 1.3rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.brand-under {
+  display: block;
+  font-size: 0.95rem;
+  opacity: 0.92;
+}
+
+main {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 3rem;
+}
+
+h1 { font-size: 1.7rem; margin: 0.8rem 0 0.4rem; }
+h2 { font-size: 1.25rem; margin: 1.6rem 0 0.4rem; }
+.intro { margin-top: 0; color: var(--gra); }
+
+.synligt-dold {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* Startsidan: sok + lista */
+.sokfalt label { display: block; font-weight: 600; margin-bottom: 0.3rem; }
+.sokfalt input {
+  width: 100%;
+  font-size: 1.25rem;
+  padding: 0.8rem;
+  border: 2px solid var(--mork);
+  border-radius: 8px;
+}
+.sokstatus { min-height: 1.5rem; color: var(--gra); margin: 0.5rem 0 0; }
+
+.stationslista {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+.stationslista a {
+  display: block;
+  padding: 0.85rem 0.5rem;
+  border-bottom: 1px solid var(--ljusgra);
+  text-decoration: none;
+  font-weight: 600;
+}
+.stationslista a:hover { background: #f3f7fb; }
+
+/* Hallplatssidan */
+.brodsmulor { margin-top: 0.8rem; }
+.brodsmulor a { text-decoration: none; font-weight: 600; }
+
+.linjelista {
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0 0;
+}
+.linjelista li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.25rem 0;
+}
+.linjemot { color: var(--gra); }
+
+.linjebricka {
+  display: inline-block;
+  min-width: 2.6rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 6px;
+  background: var(--bla);
+  color: #fff;
+  font-weight: 700;
+  text-align: center;
+}
+.linjebricka.regional {
+  background: #fff;
+  color: var(--mork);
+  border: 2px solid var(--mork);
+}
+
+.uppdaterad { color: var(--gra); margin: 0.2rem 0 0.6rem; }
+
+.avgangslista {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.avgangslista li {
+  display: grid;
+  grid-template-columns: 4rem auto 1fr auto;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0.7rem 0.3rem;
+  border-bottom: 1px solid var(--ljusgra);
+}
+.avgangslista .tid {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.avgangslista .om {
+  color: var(--bla);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.avgangslista .lage,
+.avgangslista .annandag {
+  display: inline-block;
+  background: var(--ljusgra);
+  border-radius: 6px;
+  padding: 0 0.4rem;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.avgangslista .annandag { background: var(--gul); }
+.avgangslista .tomt { display: block; color: var(--gra); }
+
+.fot {
+  border-top: 1px solid var(--ljusgra);
+  color: var(--gra);
+  font-size: 0.95rem;
+  padding: 1rem;
+  max-width: 42rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 40rem) {
+  h1 { font-size: 2rem; }
+}

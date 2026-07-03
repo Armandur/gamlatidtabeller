@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Gamla tidtabeller{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<a class="hoppa" href="#innehall">Hoppa till innehållet</a>
+<header class="topp">
+  <a class="brand" href="/">Gamla tidtabeller</a>
+  <span class="brand-under">Busstider för Härnösand</span>
+</header>
+<main id="innehall">
+{% block content %}{% endblock %}
+</main>
+<footer class="fot">
+  <p>Medborgarframställd tjänst - inte officiell information från Din Tur.</p>
+  <p>Tidtabellsdata från <a href="https://www.trafiklab.se/">Trafiklab</a> (Samtrafiken, CC0).
+  {% if data_updated %}Senast uppdaterad {{ data_updated }}.{% endif %}</p>
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -41,7 +41,8 @@ CREATE TABLE stops (
     lon REAL NOT NULL,
     location_type INTEGER NOT NULL DEFAULT 0,
     parent_station TEXT NOT NULL DEFAULT '',
-    platform_code TEXT NOT NULL DEFAULT ''
+    platform_code TEXT NOT NULL DEFAULT '',
+    is_station INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE trips (
     trip_id TEXT PRIMARY KEY,
@@ -172,8 +173,8 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
         s = stops[sid]
         stop_rows.append((sid, s["stop_name"], float(s["stop_lat"]), float(s["stop_lon"]),
                           int(s["location_type"] or 0), s["parent_station"],
-                          s["platform_code"]))
-    db.executemany("INSERT INTO stops VALUES (?, ?, ?, ?, ?, ?, ?)", stop_rows)
+                          s["platform_code"], int(sid in scope_stations)))
+    db.executemany("INSERT INTO stops VALUES (?, ?, ?, ?, ?, ?, ?, ?)", stop_rows)
 
     trip_rows, st_rows = [], []
     for tid, kept_rows in kept_trips.items():
