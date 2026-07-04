@@ -55,14 +55,36 @@ LOCAL_LINES.
 
 ## Utskrift (app/printing.py)
 
-Stolptidtabeller renderas server-side med WeasyPrint fran
-`templates/print/lapp.html` (fristaende, inline-CSS, @page-storlek
-A4/A5). Minuttabell per (linje, riktning) med kolumner man-fre/lor/son;
-dagtypsdatum valjs inom samma tidtabellsperiod som vardagsdatumet
-(via `next_table_change`), annars visas "Ingen trafik" + gul not.
-QR-kod (segno, SVG-data-URI) pekar pa `BASE_URL/hallplats/{id}`.
-Endpoint `/hallplats/{id}/lapp.pdf?format=a5|a4` har enkel in-memory
-rate limit per IP (WeasyPrint ar dyr).
+Stolptidtabeller renderas server-side med WeasyPrint. Templates:
+`print/_lapp_css.html` + `print/_lapp_body.html` (delas, body laser
+lappdata ur variabeln `L`) och `print/lapp.html` (`crop` ger A5
+centrerad pa A4 med streckad skarlinje). VARJE hallplats renderas som
+eget PDF-dokument - da blir counter(page)/counter(pages) lappens egen
+numrering ("Hallplats - sida N av M" laggs bara pa flersidiga lappar,
+via omrendering; margin-boxar paverkar inte pagineringen sa sidantalet
+ar stabilt). Batch sammanfogas med pypdf. Minuttabell per (linje,
+riktning) med dagkolumner; dagar utan trafik blir textrad och blocken
+radpackas (max tre dagkolumner per rad - WeasyPrint kan inte sidbryta
+inuti en inline-container, darfor packas raderna server-side).
+Dagtypsdatum valjs inom samma tidtabellsperiod som vardagsdatumet;
+`line_day_plans()` beraknar detta EN gang per batch (dyrt annars -
+next_table_change scannar veckovis). QR-kod (segno) pekar pa
+`BASE_URL/hallplats/{id}`. Skarlinje-laget ar 2-upp-imposition i
+pypdf: tva A5-sidor per liggande A4-ark med streckad mittlinje
+(grundarket renderas en gang och cachas i `_twoup_base_cache`).
+Enlapps-endpointen har in-memory rate limit per IP (~1 s/PDF).
+
+## Utskriftsstudio (/studio)
+
+Skrivbordsvy: vendorerad Leaflet (app/static/vendor/leaflet/) +
+OSM-tiles, cirkelmarkorer (inga ikonbilder behovs), lista med
+kryssrutor, Shift+dra ritar rektangel for omradesval, "valj synliga
+pa kartan"/alla/rensa. Batchar kors som bakgrundsjobb (~1 s per
+hallplats): POST /studio/pdf startar och returnerar jobb-id (max ett
+pagaende jobb per IP, max 2 globalt, TTL 15 min i minnet), klienten
+pollar /studio/jobb/{id} for progress och oppnar
+/studio/jobb/{id}/pdf i ny flik nar jobbet ar klart. Obscura
+kraschar pa Leaflet - browser-verifiera studion med shot/Playwright.
 
 ## Databas (data/gtfs.sqlite, byggs om nattligen)
 

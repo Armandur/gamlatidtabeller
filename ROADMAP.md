@@ -23,9 +23,13 @@
       (WeasyPrint, A4/A5, QR-kod till live-vyn, minuttabell per
       linje/riktning och dagtyp, periodnoter, rate limit)
 
+- [x] Iteration 6: utskriftsstudio - Leaflet-karta (vendorerad) + lista
+      med multival, Shift+dra-områdesval, "välj synliga/alla", batch-PDF
+      med en hållplats per sida, A4/A5, valbar skärlinje (A5 på A4)
+
 ## Kvar
 
-- [ ] Iteration 6: utskriftsstudio skrivbord - karta + lista, multival,
-      batch-PDF A4/A5, skärmärken
 - [ ] Iteration 7: Docker + GitHub Actions + Unraid-deployinstruktioner
-- [ ] Senare/kanske: VehiclePositions på karta, "nära mig" via geolocation
+- [x] "Hitta närmaste hållplats" på startsidan (geolocation på knapptryck,
+      avstånd beräknas i webbläsaren, kräver HTTPS i produktion)
+- [ ] Senare/kanske: VehiclePositions på karta

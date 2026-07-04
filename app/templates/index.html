@@ -20,13 +20,25 @@
          autocomplete="off" spellcheck="false">
 </div>
 
+<div class="narmaste" id="narmaste" hidden>
+  <button type="button" id="nara-mig" class="knapp">Hitta närmaste hållplats</button>
+  <div id="nara-resultat" role="status" aria-live="polite"></div>
+</div>
+
 <p id="sokstatus" class="sokstatus" role="status" aria-live="polite"></p>
 
 <ul class="stationslista" id="stationslista">
   {% for s in stations %}
-  <li><a href="/hallplats/{{ s['stop_id'] }}">{{ s['name'] }}</a></li>
+  <li data-lat="{{ s['lat'] }}" data-lon="{{ s['lon'] }}"><a href="/hallplats/{{ s['stop_id'] }}">{{ s['name'] }}</a></li>
   {% endfor %}
 </ul>
+
+<section aria-labelledby="studio-rubrik">
+  <h2 id="studio-rubrik">Skriv ut tidtabeller</h2>
+  <p>Varje hållplatssida har en utskrivbar PDF. För att massproducera lappar för
+  många hållplatser samtidigt finns <a href="/studio">utskriftsstudion</a>
+  (funkar bäst på stor skärm).</p>
+</section>
 {% endblock %}
 {% block scripts %}
 <script src="/static/index.js"></script>
