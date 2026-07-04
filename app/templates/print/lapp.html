@@ -19,7 +19,19 @@ header { border-bottom: 3px solid #00427a; padding-bottom: 2mm; margin-bottom: 3
 h1 { font-size: {{ '17pt' if page_size == 'A5' else '24pt' }}; color: #00427a; }
 .undertitel { font-size: {{ '9pt' if page_size == 'A5' else '12pt' }}; margin-top: 1mm; }
 
-.block { margin-bottom: 3.5mm; page-break-inside: avoid; }
+/* Block packas i rader server-side; raderna ar block-divs som
+   WeasyPrint kan sidbryta mellan, blocken i raden ar inline-block. */
+.blockrad { font-size: 0; page-break-inside: avoid; margin-bottom: 3.5mm; }
+.block {
+  display: inline-block;
+  vertical-align: top;
+  font-size: {{ '8.5pt' if page_size == 'A5' else '11pt' }};
+  margin-right: 4mm;
+}
+.block-1 { width: 29%; }
+.block-2 { width: 62%; }
+.block-3 { width: 96%; }
+.ingen-dagar { font-size: 85%; color: #444; font-style: italic; margin-top: 0.5mm; }
 .blockrubrik { margin-bottom: 1.5mm; }
 .bricka {
   display: inline-block;
@@ -84,14 +96,16 @@ footer p { margin-bottom: 1mm; }
   </p>
 </header>
 
-{% for b in blocks %}
-<section class="block">
+{% for rad in block_rows %}
+<div class="blockrad">
+{% for b in rad %}
+<section class="block {{ b.width_class }}">
   <p class="blockrubrik"><span class="bricka">{{ b.line }}</span> <strong>mot {{ b.heading }}</strong></p>
+  {% if b.missing_text %}<p class="ingen-dagar">{{ b.missing_text }}</p>{% endif %}
   <div class="dagkolumner">
     {% for col in b.day_cols %}
     <div class="dagkol">
       <h3>{{ col.label }}</h3>
-      {% if col.hours %}
       <table>
         {% for row in col.hours %}
         <tr>
@@ -100,9 +114,6 @@ footer p { margin-bottom: 1mm; }
         </tr>
         {% endfor %}
       </table>
-      {% else %}
-      <p class="ingen">Ingen trafik</p>
-      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -110,6 +121,8 @@ footer p { margin-bottom: 1mm; }
   <p class="bokstavsforklaring">{% for dest, letter in b.letters %}<strong>{{ letter }}</strong> = mot {{ dest }}&nbsp;&nbsp; {% endfor %}</p>
   {% endif %}
 </section>
+{% endfor %}
+</div>
 {% endfor %}
 
 {% if notes %}

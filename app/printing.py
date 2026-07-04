@@ -23,6 +23,12 @@ DAY_LABELS = [("vardag", "Måndag–fredag"), ("lordag", "Lördag"), ("sondag", 
 PAGE_SIZES = {"a5": "A5", "a4": "A4"}
 
 
+def _join_sv(items: list[str]) -> str:
+    """"501", "501 och 502", "501, 502 och 503"."""
+    items = sorted(set(items))
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " och " + items[-1]
+
+
 def _hour_groups(departures: list[tuple[int, str]]) -> list[dict]:
     """[(departure_s, variantbokstav)] -> radlista {hour, minutes: [(mm, bokstav)]}."""
     hours: dict[int, list] = {}
@@ -37,7 +43,8 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
 
     # (linje, riktning) -> block; dagkolumner fylls per dagtyp
     blocks: dict[tuple[str, int], dict] = {}
-    notes: set[str] = set()
+    changes: dict[date, list[str]] = {}
+    future_starts: dict[date, list[str]] = {}
 
     lines = [l["line"] for l in timetable.lines_at_station(db, station_id) if l["is_local"]]
     natural_weekday = today
@@ -49,10 +56,9 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
             continue
         change = timetable.next_table_change(db, line, vardag)
         if change:
-            notes.add(f"Linje {line}: ny tidtabell gäller från {timetable.format_date_sv(change)}.")
+            changes.setdefault(change, []).append(line)
         if vardag > natural_weekday:
-            notes.add(f"Linje {line}: tiderna gäller först från {timetable.format_date_sv(vardag)} - "
-                      "linjen har ingen trafik just nu.")
+            future_starts.setdefault(vardag, []).append(line)
         for day_key, day_label in DAY_LABELS:
             d = timetable.find_service_day(db, line, day_key, today)
             in_period = d is not None and (change is None or d < change)
@@ -72,17 +78,46 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
         dests = sorted(block["destinations"], key=block["destinations"].get, reverse=True)
         letters = {d: chr(ord("a") + i) for i, d in enumerate(sorted(dests))} \
             if len(dests) > 1 else {}
-        day_cols = []
+        # Dagar utan trafik blir en textrad i stallet for tom kolumn,
+        # sa att blocket kan krympa och nasta linje lagga sig bredvid.
+        day_cols, missing = [], []
         for day_key, day_label in DAY_LABELS:
             deps = [(s, letters.get(dest, "")) for s, dest in block["days"].get(day_key, [])]
-            day_cols.append({"label": day_label,
-                             "hours": _hour_groups(deps) if deps else None})
+            if deps:
+                day_cols.append({"label": day_label, "hours": _hour_groups(deps)})
+            else:
+                missing.append(day_label.lower())
         out_blocks.append({
             "line": line,
             "heading": " / ".join(dests[:2]),
             "letters": sorted(letters.items(), key=lambda kv: kv[1]),
             "day_cols": day_cols,
+            "missing_text": "Ingen trafik " + " och ".join(missing) if missing else "",
+            "width_class": f"block-{len(day_cols)}",
         })
+
+    # Packa blocken i rader om max tre dagkolumner - varje rad ar en
+    # egen div sa att WeasyPrint kan sidbryta mellan rader (en enda
+    # inline-container vagrar den bryta).
+    block_rows, row, used = [], [], 0
+    for b in out_blocks:
+        cols = len(b["day_cols"])
+        if row and used + cols > 3:
+            block_rows.append(row)
+            row, used = [], 0
+        row.append(b)
+        used += cols
+    if row:
+        block_rows.append(row)
+
+    # Samma budskap for flera linjer grupperas till en not
+    notes = []
+    for d, note_lines in sorted(changes.items()):
+        notes.append(f"Linje {_join_sv(note_lines)}: ny tidtabell gäller från "
+                     f"{timetable.format_date_sv(d)}.")
+    for d, note_lines in sorted(future_starts.items()):
+        notes.append(f"Linje {_join_sv(note_lines)}: tiderna gäller först från "
+                     f"{timetable.format_date_sv(d)} - ingen trafik just nu.")
 
     meta = get_meta()
     live_url = f"{config.BASE_URL}/hallplats/{station_id}"
@@ -90,7 +125,8 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
     return {
         "station": station,
         "blocks": out_blocks,
-        "notes": sorted(notes),
+        "block_rows": block_rows,
+        "notes": notes,
         "updated": meta.get("feed_version", ""),
         "printed": today.isoformat(),
         "live_url": live_url,
