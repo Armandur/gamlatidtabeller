@@ -33,4 +33,22 @@ TZ = ZoneInfo("Europe/Stockholm")
 # kvallslinje 590). Styr vilka hallplatser som importeras och vilka
 # linjer som far linjevy och utskriftslappar. Hallplatsvyn visar
 # alla avgangar (aven regionala linjer) fran de importerade hallplatserna.
+# Default har; kan andras i admin-granssnittet (settings.json vinner).
 LOCAL_LINES = {"501", "502", "503", "511", "590"}
+
+# Admin-appen kors som egen ASGI-app pa egen port (exponeras normalt
+# inte publikt). ADMIN_PASSWORD tomt = ingen inloggning (lita pa att
+# porten ar privat); satt det i drift.
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "") or os.urandom(32).hex()
+
+
+def get_local_lines() -> set[str]:
+    from app import settings_store
+    value = settings_store.load().get("local_lines")
+    return set(value) if value else set(LOCAL_LINES)
+
+
+def get_base_url() -> str:
+    from app import settings_store
+    return (settings_store.load().get("base_url") or BASE_URL).rstrip("/")

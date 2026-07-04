@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Admin - Gamla tidtabeller{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+<style>
+.admin-kort {
+  border: 1px solid var(--ljusgra);
+  border-radius: 8px;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+.admin-kort h2 { margin-top: 0; }
+.admin-kort dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0;
+}
+.admin-kort dt { font-weight: 600; }
+.admin-kort dd { margin: 0; }
+.admin-kort input[type="text"], .admin-kort input[type="password"] {
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 0.5rem;
+  border: 2px solid var(--mork);
+  border-radius: 6px;
+}
+.admin-kort label { display: block; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+.admin-status-ok { color: #1a7a2e; font-weight: 700; }
+.admin-status-fel { color: #b00020; font-weight: 700; }
+.admin-atgard { background: #f3f7fb; border-radius: 6px; padding: 0.5rem 0.8rem; }
+.admin-topp { display: flex; justify-content: space-between; align-items: center; }
+.knapp.sekundar { background: #fff; color: var(--bla); border: 2px solid var(--bla); }
+.knapp.sekundar:hover { background: #eaf2f9; }
+form.inline { display: inline; }
+.hjalptext { color: var(--gra); font-size: 0.95rem; margin: 0.2rem 0 0; }
+</style>
+</head>
+<body>
+<header class="topp">
+  <a class="brand" href="/">Gamla tidtabeller - admin</a>
+  <span class="brand-under">Intern drift- och inställningssida</span>
+</header>
+<main id="innehall">
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

@@ -139,7 +139,7 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
                      f"{timetable.format_date_sv(d)} - ingen trafik just nu.")
 
     meta = get_meta()
-    live_url = f"{config.BASE_URL}/hallplats/{station_id}"
+    live_url = f"{config.get_base_url()}/hallplats/{station_id}"
     qr = segno.make(live_url, error="m")
     return {
         "station": station,

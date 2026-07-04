@@ -133,7 +133,7 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
                      _time_to_seconds(row["departure_time"])))
 
     local_route_ids = {rid for rid, r in routes.items()
-                       if r["route_short_name"] in config.LOCAL_LINES}
+                       if r["route_short_name"] in config.get_local_lines()}
     local_trip_ids = {tid for tid, t in trips.items()
                       if t["route_id"] in local_route_ids}
 

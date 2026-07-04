@@ -1,0 +1,94 @@
+{% extends "admin/base.html" %}
+{% block title %}Admin - Gamla tidtabeller{% endblock %}
+{% block content %}
+<div class="admin-topp">
+  <h1>Driftläge</h1>
+  {% if password_set %}
+  <form class="inline" method="post" action="/logga-ut">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button type="submit" class="knapp sekundar">Logga ut</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if not password_set %}
+<p class="varning">ADMIN_PASSWORD är inte satt - admingränssnittet är oskyddat.
+Sätt det i miljön i drift, även om porten inte exponeras publikt.</p>
+{% endif %}
+
+{% if action.message %}
+<p class="admin-atgard" role="status">{{ action.message }}{% if action.running %} (sidan kan laddas om för att följa){% endif %}</p>
+{% endif %}
+
+<section class="admin-kort">
+  <h2>Tidtabellsdata</h2>
+  <dl>
+    <dt>Feedversion</dt><dd>{{ meta.get('feed_version', 'databas saknas') }}</dd>
+    <dt>Nedladdad</dt><dd>{{ meta.get('downloaded_at', '-') }}</dd>
+    <dt>Importerad</dt><dd>{{ meta.get('imported_at', '-') }}</dd>
+    <dt>Zip-cachens ålder</dt><dd>{{ zip_age ~ ' timmar' if zip_age else 'saknas' }}</dd>
+    <dt>Hållplatser / turer</dt><dd>{{ meta.get('stations', '-') }} / {{ meta.get('trips', '-') }}</dd>
+  </dl>
+  <p>
+    <form class="inline" method="post" action="/uppdatera">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button type="submit" class="knapp sekundar" {% if action.running %}disabled{% endif %}>Bygg om från cachad zip</button>
+    </form>
+    <form class="inline" method="post" action="/uppdatera"
+          onsubmit="return confirm('Detta gör ett kvotbelagt anrop mot Trafiklab (60/30 dagar). Fortsätta?')">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="force" value="true">
+      <button type="submit" class="knapp" {% if action.running %}disabled{% endif %}>Hämta ny GTFS nu</button>
+    </form>
+  </p>
+  <p class="hjalptext">Nattlig uppdatering sker 04:30 och hämtar alltid färsk zip.</p>
+</section>
+
+<section class="admin-kort">
+  <h2>Realtid</h2>
+  <dl>
+    <dt>Status</dt>
+    <dd>{% if rt_fresh %}<span class="admin-status-ok">OK</span>{% else %}<span class="admin-status-fel">Ej färsk</span>{% endif %}</dd>
+    <dt>Senaste hämtning</dt><dd>{{ rt_age ~ ' s sedan' if rt_age is not none else 'aldrig (startas med publika appen)' }}</dd>
+    <dt>Turer i minnet</dt><dd>{{ rt_trips }}</dd>
+    <dt>Störningar</dt><dd>{{ rt_alerts }}</dd>
+  </dl>
+</section>
+
+<section class="admin-kort">
+  <h2>Utskriftsjobb (senaste 15 min)</h2>
+  {% if jobs %}
+  <ul>
+    {% for j in jobs %}
+    <li>{{ j.status }} - {{ j.progress }}/{{ j.total }} hållplatser</li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>Inga jobb.</p>
+  {% endif %}
+</section>
+
+<section class="admin-kort">
+  <h2>Inställningar</h2>
+  <form method="post" action="/installningar">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="local_lines">Lokala linjer (kommaseparerade)</label>
+    <input type="text" id="local_lines" name="local_lines" value="{{ local_lines }}">
+    <p class="hjalptext">Styr vilka hållplatser som importeras samt linjevy och utskrifter.
+    Ändring bygger om databasen från cachad zip (inget kvotanrop). Default: {{ default_lines }}</p>
+
+    <label for="base_url">Bas-URL (används i QR-koder på lappar)</label>
+    <input type="text" id="base_url" name="base_url" value="{{ base_url }}">
+    <p class="hjalptext">Default (från miljön): {{ default_base_url }}</p>
+
+    <p>
+      <button type="submit" class="knapp" {% if action.running %}disabled{% endif %}>Spara</button>
+      {% if has_overrides %}
+      <button type="submit" name="aterstall" value="true" class="knapp sekundar"
+              {% if action.running %}disabled{% endif %}
+              onclick="return confirm('Ta bort alla avvikelser och gå tillbaka till miljöns defaultvärden?')">Återställ till default</button>
+      {% endif %}
+    </p>
+  </form>
+</section>
+{% endblock %}

@@ -25,7 +25,7 @@ API:erna kräver headern `Accept-Encoding: gzip`, annars svarar de HTTP 406.
 cp .env.example .env   # fyll i Trafiklab-nycklar
 uv sync
 uv run python -m app.gtfs_import   # bygg databasen (laddar ner zip vid behov)
-uv run uvicorn app.main:app --port 8000
+uv run python -m app.run   # publik app pa PORT, admin pa ADMIN_PORT
 ```
 
 `python -m app.gtfs_import --force-download` tvingar ny nedladdning
@@ -44,3 +44,11 @@ uv run uvicorn app.main:app --port 8000
 
 Kommer när appen är körbar på riktigt: single-container Docker på Unraid
 (Add Container), image via GitHub Actions till ghcr. Se `DOCKER.md` (senare).
+
+## Admin
+
+Ett separat admingränssnitt körs på `ADMIN_PORT` (exponera den inte
+publikt): datastatus, manuell GTFS-uppdatering ("bygg om från cache"
+utan kvotanrop respektive "hämta ny" med), samt inställningar för
+lokala linjer och bas-URL som sparas i `data/settings.json` och
+överlever databasombyggen. Skyddas med `ADMIN_PASSWORD`.

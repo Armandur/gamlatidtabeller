@@ -99,20 +99,47 @@ kraschar pa Leaflet - browser-verifiera studion med shot/Playwright.
 Läsning via `app/database.py:open_db()` - ny anslutning per användning
 (read-only URI) eftersom filen byts atomiskt av nattjobbet.
 
+## Admin (egen app, egen port)
+
+`app/admin.py` ar en SEPARAT FastAPI-app som kors i samma process som
+publika appen via `python -m app.run` (PORT + ADMIN_PORT) - samma
+process kravs for att dashboarden ska se realtidsstatus och
+utskriftsjobb i minnet. Admin-porten exponeras inte publikt;
+ADMIN_PASSWORD ger inloggning ovanpa (Starlette SessionMiddleware,
+CSRF-token i session pa alla POST). OBS: `secrets.compare_digest`
+kraver bytes for icke-ASCII - jamfor alltid `.encode()`.
+
+Installningar som kan andras i admin (lokala linjer, bas-URL for QR)
+lagras i `data/settings.json` via `app/settings_store.py` - de kan
+inte bo i databasen som byggs om varje natt. Env ar default,
+settings.json innehaller bara avvikelser; `config.get_local_lines()`
+/`get_base_url()` ar uppslagen. Linjeandring bygger om databasen
+fran cachad zip automatiskt.
+
 ## Filstruktur
 
 ```
 app/
-  main.py          # app, lifespan (startbygge + nattlig refresh), /api/status
-  config.py        # env, LOCAL_LINES, kvot-/schemakonstanter
+  main.py          # publik app, lifespan (startbygge, nattlig refresh, RT-poller)
+  run.py           # kor publik + admin i samma process pa tva portar
+  admin.py         # admin-app (egen port): status, atgarder, installningar
+  config.py        # env, LOCAL_LINES-default, get_local_lines()/get_base_url()
+  settings_store.py# data/settings.json - admininstallningar som overlever ombygge
   database.py      # open_db(), get_meta(), DatabaseMissing
-  gtfs_import.py   # zip -> sqlite, körbar som modul
+  gtfs_import.py   # zip -> sqlite, korbar som modul
+  timetable.py     # uppslag: sok, avgangar, linjetabeller, servicedagar
+  printing.py      # stolptidtabells-PDF (WeasyPrint, QR, 2-upp)
+  deps.py          # templates-instans
   services/
-    trafiklab.py   # nedladdning med cache-spärr
-  routes/          # (kommande) hållplatsvy, linjevy, utskrift
-  templates/       # (kommande)
-  static/          # (kommande)
-data/              # gitignored: zip-cache + sqlite
+    trafiklab.py   # nedladdning med cache-sparr
+    realtime.py    # GTFS-RT-poller + matchning
+  routes/
+    pages.py       # startsida, hallplatsvy, linjevy, lapp-PDF
+    api.py         # status + avgangs-JSON (pollas av stop.js)
+    studio.py      # utskriftsstudio + batchjobb
+  templates/       # Jinja2 (print/ for PDF, admin/ for adminappen)
+  static/          # vanilla JS/CSS + vendorerad Leaflet
+data/              # gitignored: zip-cache + sqlite + settings.json
 ```
 
 ## Kommande (se ROADMAP.md)
