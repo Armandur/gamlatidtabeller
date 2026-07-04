@@ -10,6 +10,8 @@ dependencies = [
     "httpx>=0.27",
     "python-dotenv>=1.0",
     "gtfs-realtime-bindings>=1.0",
+    "weasyprint>=62",
+    "segno>=1.6",
 ]
 
 [tool.uv]

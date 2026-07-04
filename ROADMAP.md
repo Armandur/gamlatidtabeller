@@ -19,9 +19,12 @@
       avgångslistan, störningsbanner på hållplats- och linjesidor,
       automatisk fallback till tidtabellstid när feeden är nere/gammal
 
+- [x] Iteration 5: utskrift mobil - stolptidtabell som PDF per hållplats
+      (WeasyPrint, A4/A5, QR-kod till live-vyn, minuttabell per
+      linje/riktning och dagtyp, periodnoter, rate limit)
+
 ## Kvar
 
-- [ ] Iteration 5: utskrift mobil - PDF för en hållplats (WeasyPrint, QR)
 - [ ] Iteration 6: utskriftsstudio skrivbord - karta + lista, multival,
       batch-PDF A4/A5, skärmärken
 - [ ] Iteration 7: Docker + GitHub Actions + Unraid-deployinstruktioner

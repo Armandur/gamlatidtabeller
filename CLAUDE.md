@@ -53,6 +53,17 @@ LOCAL_LINES.
 - Sommartrafik ligger som egna service_id (2026: 2 juli-14 aug, inga
   stadsbussar lör/sön, ingen 590 före 17 aug).
 
+## Utskrift (app/printing.py)
+
+Stolptidtabeller renderas server-side med WeasyPrint fran
+`templates/print/lapp.html` (fristaende, inline-CSS, @page-storlek
+A4/A5). Minuttabell per (linje, riktning) med kolumner man-fre/lor/son;
+dagtypsdatum valjs inom samma tidtabellsperiod som vardagsdatumet
+(via `next_table_change`), annars visas "Ingen trafik" + gul not.
+QR-kod (segno, SVG-data-URI) pekar pa `BASE_URL/hallplats/{id}`.
+Endpoint `/hallplats/{id}/lapp.pdf?format=a5|a4` har enkel in-memory
+rate limit per IP (WeasyPrint ar dyr).
+
 ## Databas (data/gtfs.sqlite, byggs om nattligen)
 
 - `meta` - feed_version, downloaded_at, imported_at, radantal

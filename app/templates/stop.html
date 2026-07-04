@@ -52,6 +52,15 @@
     {% endfor %}
   </ol>
 </section>
+
+<section aria-labelledby="utskrift-rubrik">
+  <h2 id="utskrift-rubrik">Skriv ut tidtabell</h2>
+  <p>Stolptidtabell för hållplatsen som PDF, med QR-kod till den här sidan.</p>
+  <p class="utskriftsknappar">
+    <a class="knapp" href="/hallplats/{{ station['stop_id'] }}/lapp.pdf?format=a5">Hämta PDF (A5)</a>
+    <a class="knapp" href="/hallplats/{{ station['stop_id'] }}/lapp.pdf?format=a4">Hämta PDF (A4)</a>
+  </p>
+</section>
 {% endblock %}
 {% block scripts %}
 <script src="/static/utils.js"></script>

@@ -281,3 +281,24 @@ def station_rt_keys(db: sqlite3.Connection, station_id: str) -> tuple[set[str], 
 def line_route_ids(db: sqlite3.Connection, line: str) -> set[str]:
     return {r["route_id"] for r in db.execute(
         "SELECT route_id FROM routes WHERE short_name = ? AND is_local = 1", (line,))}
+
+
+# Lokala linjers avgangar fran en station en given trafikdag - underlag
+# for utskrivbara stolptidtabeller.
+_STOP_DAY_SQL = """
+SELECT r.short_name AS line, t.direction_id, t.destination, st.departure_s
+FROM stop_times st
+JOIN stops s ON s.stop_id = st.stop_id
+JOIN trips t ON t.trip_id = st.trip_id
+JOIN routes r ON r.route_id = t.route_id
+JOIN service_dates sd ON sd.service_id = t.service_id
+WHERE (s.parent_station = :sid OR s.stop_id = :sid)
+  AND sd.date = :date AND st.is_last = 0 AND r.is_local = 1
+ORDER BY st.departure_s
+"""
+
+
+def stop_day_departures(db: sqlite3.Connection, station_id: str,
+                        service_date: date) -> list[sqlite3.Row]:
+    return db.execute(_STOP_DAY_SQL, {
+        "sid": station_id, "date": service_date.isoformat()}).fetchall()

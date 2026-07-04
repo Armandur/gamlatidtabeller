@@ -1,13 +1,29 @@
+import re
+import time
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 
-from app import config, timetable
+from app import config, printing, timetable
 from app.database import get_meta, open_db
 from app.deps import templates
 from app.services import realtime
 
 router = APIRouter()
+
+# Enkel rate limit for PDF-generering (WeasyPrint ar dyr). Bara
+# tidsstamplar i minnet, per klient-IP, aldrig loggat eller lagrat.
+_pdf_hits: dict[str, list[float]] = {}
+
+
+def _pdf_rate_ok(ip: str, per_minute: int = 10) -> bool:
+    now = time.time()
+    hits = [t for t in _pdf_hits.get(ip, []) if now - t < 60]
+    ok = len(hits) < per_minute
+    hits.append(now)
+    _pdf_hits[ip] = hits
+    return ok
 
 
 def _base_context(request: Request) -> dict:
@@ -72,6 +88,24 @@ def line_page(request: Request, line: str, typ: str = "vardag"):
         "directions": directions,
         "alerts": alerts,
     })
+
+
+@router.get("/hallplats/{station_id}/lapp.pdf")
+def lapp_pdf(request: Request, station_id: str, format: str = "a5"):
+    """Utskrivbar stolptidtabell for hallplatsen."""
+    if format not in printing.PAGE_SIZES:
+        raise HTTPException(404, "Okänt pappersformat")
+    client_ip = request.client.host if request.client else "?"
+    if not _pdf_rate_ok(client_ip):
+        raise HTTPException(429, "För många utskrifter på kort tid - vänta en minut.")
+    with open_db() as db:
+        station = timetable.get_station(db, station_id)
+        if station is None:
+            raise HTTPException(404, "Hållplatsen finns inte")
+        pdf = printing.render_lapp_pdf(db, station, format)
+    slug = re.sub(r"[^a-z0-9]+", "-", station["name"].lower()).strip("-")
+    return Response(pdf, media_type="application/pdf", headers={
+        "Content-Disposition": f'inline; filename="busstider-{slug}-{format}.pdf"'})
 
 
 @router.get("/hallplats/{station_id}")
