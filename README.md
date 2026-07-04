@@ -39,6 +39,10 @@ uv run python -m app.run   # publik app pa PORT, admin pa ADMIN_PORT
 | `TRAFIKLAB_RT_KEY` | Nyckel för GTFS Regional Realtime |
 | `BASE_URL` | Publik bas-URL, används i QR-koder på utskrifter |
 | `DATA_DIR` | Katalog för zip-cache och SQLite (default `data`) |
+| `PORT` | Publika appens port vid `python -m app.run` (default 8000) |
+| `ADMIN_PORT` | Admingränssnittets port - exponera ej publikt (default 8001) |
+| `ADMIN_PASSWORD` | Lösenord för admin; tomt = ingen inloggning |
+| `SESSION_SECRET` | Signeringsnyckel för admin-sessioner; tomt = slumpas per start |
 
 ## Deployment
 
