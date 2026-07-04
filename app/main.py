@@ -30,7 +30,10 @@ async def _nightly_refresh_loop():
     while True:
         await asyncio.sleep(_seconds_until_next_refresh())
         try:
-            await asyncio.to_thread(gtfs_import.refresh)
+            # Tvinga nedladdning: kvoten (60/30d) ar dimensionerad for en
+            # hamtning per natt, och cache-sparren ska inte kunna fa
+            # nattjobbet att ateranvanda en manuellt nedladdad aldre zip.
+            await asyncio.to_thread(gtfs_import.refresh, True)
         except Exception:
             log.exception("Nattlig GTFS-uppdatering misslyckades, kor vidare pa befintlig data")
 
