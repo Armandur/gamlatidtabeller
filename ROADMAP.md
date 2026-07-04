@@ -35,4 +35,5 @@
       GitHub Actions till ghcr, DOCKER.md med Unraid Add Container-tabeller
 - [x] "Hitta närmaste hållplats" på startsidan (geolocation på knapptryck,
       avstånd beräknas i webbläsaren, kräver HTTPS i produktion)
-- [ ] Senare/kanske: VehiclePositions på karta
+- [x] VehiclePositions: "Var är bussen?"-karta på hållplatssidan
+      (branch `vehiclepositions`, mergas efter test i verklig trafik)

@@ -34,7 +34,9 @@ def departures(station_id: str, limit: int = 20):
         route_ids, stop_ids = timetable.station_rt_keys(db, station_id)
     realtime_ok = realtime.enrich_departures(deps, now)
     alerts = realtime.alerts_for(route_ids, stop_ids)
+    vehicles = realtime.vehicles_for_departures(deps)
     for d in deps:
         d["when"] = d["when"].isoformat(timespec="minutes")
     return {"station": station["name"], "generated_at": now.strftime("%H:%M"),
-            "realtime_ok": realtime_ok, "alerts": alerts, "departures": deps}
+            "realtime_ok": realtime_ok, "alerts": alerts,
+            "vehicles": vehicles, "departures": deps}

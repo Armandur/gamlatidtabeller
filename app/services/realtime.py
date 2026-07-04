@@ -26,6 +26,7 @@ class RealtimeState:
     def __init__(self):
         self.trip_updates: dict[str, dict] = {}
         self.alerts: list[dict] = []
+        self.vehicle_positions: dict[str, dict] = {}
         self.updated_at: float | None = None
 
     @property
@@ -95,20 +96,44 @@ def _parse_alerts(payload: bytes) -> list[dict]:
     return out
 
 
+def _parse_vehicle_positions(payload: bytes) -> dict[str, dict]:
+    """trip_id -> senaste fordonsposition (lat/lon/riktning/tidsstampel)."""
+    feed = gtfs_realtime_pb2.FeedMessage()
+    feed.ParseFromString(payload)
+    out: dict[str, dict] = {}
+    for entity in feed.entity:
+        if not entity.HasField("vehicle"):
+            continue
+        v = entity.vehicle
+        if not v.trip.trip_id or not v.HasField("position"):
+            continue
+        out[v.trip.trip_id] = {
+            "lat": v.position.latitude,
+            "lon": v.position.longitude,
+            "bearing": v.position.bearing if v.position.HasField("bearing") else None,
+            "ts": v.timestamp or None,
+        }
+    return out
+
+
 async def poll_loop():
     headers = {"Accept-Encoding": "gzip"}
     async with httpx.AsyncClient(timeout=15, headers=headers) as client:
         while True:
             try:
-                tu, sa = await asyncio.gather(
+                tu, sa, vp = await asyncio.gather(
                     client.get(f"{config.GTFS_RT_BASE}/TripUpdates.pb",
                                params={"key": config.TRAFIKLAB_RT_KEY}),
                     client.get(f"{config.GTFS_RT_BASE}/ServiceAlerts.pb",
+                               params={"key": config.TRAFIKLAB_RT_KEY}),
+                    client.get(f"{config.GTFS_RT_BASE}/VehiclePositions.pb",
                                params={"key": config.TRAFIKLAB_RT_KEY}))
                 tu.raise_for_status()
                 sa.raise_for_status()
+                vp.raise_for_status()
                 state.trip_updates = _parse_trip_updates(tu.content)
                 state.alerts = _parse_alerts(sa.content)
+                state.vehicle_positions = _parse_vehicle_positions(vp.content)
                 state.updated_at = time.time()
             except Exception as exc:
                 # Behall gammalt state; `fresh` slar over till False av sig sjalv
@@ -184,3 +209,29 @@ def alerts_for(route_ids: set[str], stop_ids: set[str]) -> list[dict]:
             if len(a["description"]) > len(best.get(a["header"], "")):
                 best[a["header"]] = a["description"]
     return [{"header": h, "description": d} for h, d in best.items()]
+
+
+def vehicles_for_departures(departures: list[dict]) -> list[dict]:
+    """Fordonspositioner for avgangarnas turer (en per tur, farsk data)."""
+    if not state.fresh:
+        return []
+    now = time.time()
+    out, seen = [], set()
+    for dep in departures:
+        trip_id = dep["trip_id"]
+        if trip_id in seen or dep.get("canceled"):
+            continue
+        pos = state.vehicle_positions.get(trip_id)
+        if pos is None:
+            continue
+        seen.add(trip_id)
+        out.append({
+            "trip_id": trip_id,
+            "line": dep["line"],
+            "destination": dep["destination"],
+            "lat": pos["lat"],
+            "lon": pos["lon"],
+            "bearing": pos["bearing"],
+            "age_s": int(now - pos["ts"]) if pos["ts"] else None,
+        })
+    return out

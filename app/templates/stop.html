@@ -53,6 +53,15 @@
   </ol>
 </section>
 
+<section aria-labelledby="karta-rubrik">
+  <h2 id="karta-rubrik">Var är bussen?</h2>
+  <p class="uppdaterad">Visa bussar som är på väg mot hållplatsen på en karta.
+    Kartan hämtas först när du ber om den.</p>
+  <button type="button" id="visa-karta" class="knapp">Visa kartan</button>
+  <div id="fordonskarta" hidden aria-label="Karta med bussarnas positioner"></div>
+  <p id="karta-status" class="uppdaterad" role="status" aria-live="polite"></p>
+</section>
+
 <section aria-labelledby="utskrift-rubrik">
   <h2 id="utskrift-rubrik">Skriv ut tidtabell</h2>
   <p>Stolptidtabell för hållplatsen som PDF, med QR-kod till den här sidan.</p>
@@ -64,6 +73,9 @@
 {% endblock %}
 {% block scripts %}
 <script src="/static/utils.js"></script>
-<script>window.STATION_ID = {{ station['stop_id'] | tojson }};</script>
+<script>
+window.STATION_ID = {{ station['stop_id'] | tojson }};
+window.STATION_POS = [{{ station['lat'] }}, {{ station['lon'] }}];
+</script>
 <script src="/static/stop.js"></script>
 {% endblock %}
