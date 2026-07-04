@@ -29,7 +29,10 @@
 
 ## Kvar
 
-- [ ] Iteration 7: Docker + GitHub Actions + Unraid-deployinstruktioner
+- [x] Admingränssnitt på egen port: datastatus, manuell GTFS-uppdatering,
+      inställningar (lokala linjer, bas-URL) i settings.json
+- [x] Iteration 7: Dockerfile (uv, WeasyPrint-libbar, non-root),
+      GitHub Actions till ghcr, DOCKER.md med Unraid Add Container-tabeller
 - [x] "Hitta närmaste hållplats" på startsidan (geolocation på knapptryck,
       avstånd beräknas i webbläsaren, kräver HTTPS i produktion)
 - [ ] Senare/kanske: VehiclePositions på karta

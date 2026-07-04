@@ -46,8 +46,9 @@ uv run python -m app.run   # publik app pa PORT, admin pa ADMIN_PORT
 
 ## Deployment
 
-Kommer när appen är körbar på riktigt: single-container Docker på Unraid
-(Add Container), image via GitHub Actions till ghcr. Se `DOCKER.md` (senare).
+Single-container Docker på Unraid (Add Container). Imagen byggs av
+GitHub Actions till `ghcr.io/armandur/gamlatidtabeller`. Fullständiga
+instruktioner med port-, sökvägs- och variabeltabeller: se `DOCKER.md`.
 
 ## Admin
 

@@ -147,6 +147,15 @@ data/              # gitignored: zip-cache + sqlite + settings.json
 Hållplatsvy -> linjevy -> realtid (egen GTFS-RT-poller, protobuf,
 in-memory) -> utskriftsstudio (WeasyPrint, segno-QR, batch-PDF A4/A5).
 
+## Deployment
+
+Dockerfile: python 3.12-slim + uv (`uv sync --frozen`), apt-paket för
+WeasyPrint (libpango/libharfbuzz) och fonts-dejavu-core, non-root
+`appuser` MED hemkatalog (annars klagar fontconfig pa cache), volym
+`/data`, CMD `python -m app.run` (bada portarna). CI:
+`.github/workflows/docker.yml` bygger till ghcr med latest/sha/branch/
+semver. Driftinstruktioner för Unraid Add Container: se DOCKER.md.
+
 ## Test/verifiering
 
 ```bash
