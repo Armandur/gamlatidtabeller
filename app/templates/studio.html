@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Utskriftsstudio - Gamla tidtabeller{% endblock %}
+{% block content %}
+<div class="studio">
+<h1>Utskriftsstudio</h1>
+<p class="intro">Välj hållplatser i listan eller på kartan och skapa en flersidig PDF
+med en stolptidtabell per hållplats - för uppsättning i väderskydd och på stolpar.
+Håll <kbd>Shift</kbd> och dra på kartan för att välja ett område.</p>
+
+<div class="studio-ytor">
+  <aside class="studio-lista">
+    <label for="studio-sok">Filtrera hållplatser</label>
+    <input type="search" id="studio-sok" placeholder="Skriv för att filtrera" autocomplete="off">
+    <div class="studio-listknappar">
+      <button type="button" id="valj-synliga">Välj synliga på kartan</button>
+      <button type="button" id="valj-alla">Välj alla</button>
+      <button type="button" id="valj-inga">Rensa val</button>
+    </div>
+    <ul id="studio-stationer" aria-label="Hållplatser ({{ station_count }} st)"></ul>
+  </aside>
+  <div class="studio-karta">
+    <div id="karta" aria-label="Karta över hållplatser (klicka för att välja)"></div>
+  </div>
+</div>
+
+<form class="studio-verktyg" method="post" action="/studio/pdf" id="pdf-form">
+  <input type="hidden" name="ids" id="ids-input">
+  <span id="val-status" role="status" aria-live="polite"><strong>0</strong> hållplatser valda</span>
+  <label>Format
+    <select name="format">
+      <option value="a5" selected>A5</option>
+      <option value="a4">A4</option>
+    </select>
+  </label>
+  <label class="skarlinje-val">
+    <input type="checkbox" name="skarlinje" value="true">
+    Två per ark (2 A5 på liggande A4, skärlinje i mitten)
+  </label>
+  <button type="submit" class="knapp" id="skapa-pdf" disabled>Skapa PDF</button>
+  <span id="jobb-status" role="status" aria-live="polite"></span>
+  <a id="jobb-lank" class="knapp" hidden target="_blank" rel="noopener">Öppna PDF</a>
+</form>
+</div>
+{% endblock %}
+{% block scripts %}
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/utils.js"></script>
+<script>window.STATIONS = {{ stations_json | safe }};</script>
+<script src="/static/studio.js"></script>
+{% endblock %}

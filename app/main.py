@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from app import config, gtfs_import
 from app.database import DatabaseMissing
 from app.deps import templates
-from app.routes import api, pages
+from app.routes import api, pages, studio
 from app.services import realtime
 
 log = logging.getLogger(__name__)
@@ -53,6 +53,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Gamla tidtabeller", lifespan=lifespan)
 app.include_router(pages.router)
 app.include_router(api.router)
+app.include_router(studio.router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 

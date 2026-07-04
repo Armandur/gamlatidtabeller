@@ -12,6 +12,9 @@
 
 * { box-sizing: border-box; }
 
+/* hidden-attributet ska vinna aven over klasser som satter display */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -310,5 +313,94 @@ h2 { font-size: 1.25rem; margin: 1.6rem 0 0.4rem; }
   padding: 0.75rem 1.1rem;
   border-radius: 8px;
   margin: 0.2rem 0.4rem 0.2rem 0;
+  line-height: 1.2; /* lika hojd for <a> och <button> med samma klass */
 }
 .knapp:hover { background: #005ba8; }
+
+/* Utskriftsstudio (skrivbordsvy) */
+.studio { max-width: none; }
+main:has(.studio) { max-width: 78rem; }
+
+.studio-ytor {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) 2fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.studio-lista input[type="search"] {
+  width: 100%;
+  font-size: 1.05rem;
+  padding: 0.55rem;
+  border: 2px solid var(--mork);
+  border-radius: 8px;
+}
+.studio-lista label[for="studio-sok"] { font-weight: 600; display: block; margin-bottom: 0.3rem; }
+.studio-listknappar { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.6rem 0; }
+.studio-listknappar button {
+  font-size: 0.95rem;
+  padding: 0.45rem 0.7rem;
+  border: 2px solid var(--bla);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--bla);
+  font-weight: 600;
+  cursor: pointer;
+}
+.studio-listknappar button:hover { background: #eaf2f9; }
+
+#studio-stationer {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 32rem;
+  overflow-y: auto;
+  border: 1px solid var(--ljusgra);
+  border-radius: 8px;
+}
+#studio-stationer li { border-bottom: 1px solid var(--ljusgra); }
+#studio-stationer label {
+  display: block;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+}
+#studio-stationer label:hover { background: #f3f7fb; }
+#studio-stationer input { width: 1.2rem; height: 1.2rem; }
+
+#karta {
+  height: 40rem;
+  max-height: 75vh;
+  border-radius: 8px;
+  border: 1px solid var(--ljusgra);
+}
+
+.studio-verktyg {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.2rem;
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background: #f3f7fb;
+  border-radius: 8px;
+}
+.studio-verktyg select {
+  font-size: 1.05rem;
+  padding: 0.35rem;
+  border: 2px solid var(--mork);
+  border-radius: 6px;
+}
+.studio-verktyg .knapp { border: 0; font-size: 1.05rem; cursor: pointer; }
+.studio-verktyg .knapp:disabled { background: var(--gra); cursor: not-allowed; }
+
+@media (max-width: 50rem) {
+  .studio-ytor { grid-template-columns: 1fr; }
+  #karta { height: 24rem; }
+}
+
+/* Narmaste hallplats */
+.narmaste { margin-top: 0.8rem; }
+#nara-resultat p { margin: 0.6rem 0 0.2rem; font-weight: 600; }
+#nara-resultat ul { list-style: none; padding: 0; margin: 0; }
+#nara-resultat li { padding: 0.35rem 0; }
+#nara-resultat a { font-weight: 600; }
+.avstand { color: var(--gra); margin-left: 0.4rem; }
