@@ -12,6 +12,8 @@ dependencies = [
     "gtfs-realtime-bindings>=1.0",
     "weasyprint>=62",
     "segno>=1.6",
+    "python-multipart>=0.0.9",
+    "pypdf>=5",
 ]
 
 [tool.uv]

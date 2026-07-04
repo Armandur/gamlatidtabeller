@@ -1,0 +1,53 @@
+
+<header>
+  <h1>{{ L.station['name'] }}</h1>
+  <p class="undertitel">Busstider
+    {% for b in L.blocks | groupby('line') %}<span class="bricka">{{ b.grouper }}</span> {% endfor %}
+  </p>
+</header>
+
+{% for rad in L.block_rows %}
+<div class="blockrad">
+{% for b in rad %}
+<section class="block {{ b.width_class }}">
+  <p class="blockrubrik"><span class="bricka">{{ b.line }}</span> <strong>mot {{ b.heading }}</strong></p>
+  {% if b.missing_text %}<p class="ingen-dagar">{{ b.missing_text }}</p>{% endif %}
+  <div class="dagkolumner">
+    {% for col in b.day_cols %}
+    <div class="dagkol">
+      <h3>{{ col.label }}</h3>
+      <table>
+        {% for row in col.hours %}
+        <tr>
+          <td class="timme">{{ row.hour }}</td>
+          <td class="minuter">{% for mm, letter in row.minutes %}{{ "%02d" | format(mm) }}{% if letter %}<span class="variant">{{ letter }}</span>{% endif %} {% endfor %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endfor %}
+  </div>
+  {% if b.letters %}
+  <p class="bokstavsforklaring">{% for dest, letter in b.letters %}<strong>{{ letter }}</strong> = mot {{ dest }}&nbsp;&nbsp; {% endfor %}</p>
+  {% endif %}
+</section>
+{% endfor %}
+</div>
+{% endfor %}
+
+{% if L.notes %}
+<div class="noter">
+  {% for n in L.notes %}<p class="not">{{ n }}</p>{% endfor %}
+</div>
+{% endif %}
+
+<footer>
+  <div class="qr"><img src="{{ L.qr_data_uri }}" alt="QR-kod till hållplatsens webbsida"></div>
+  <div>
+    <p class="disclaimer">Medborgarframställd information - EJ officiell tidtabell från Din Tur.
+      Helgdagar och avvikelser kan skilja sig.</p>
+    <p>Skanna QR-koden för aktuella tider i realtid, eller besök<br>{{ L.live_url }}</p>
+    <p>Data: Trafiklab / Samtrafiken (CC0). Tidtabellsdata från {{ L.updated }},
+      utskriven {{ L.printed }}.</p>
+  </div>
+</footer>

@@ -1,0 +1,97 @@
+
+@page {
+  size: {{ page_size }} portrait;
+  margin: 9mm;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: "DejaVu Sans", sans-serif;
+  color: #111;
+  font-size: {{ '8.5pt' if page_size == 'A5' else '11pt' }};
+  line-height: 1.35;
+}
+header { border-bottom: 3px solid #00427a; padding-bottom: 2mm; margin-bottom: 3mm; }
+h1 { font-size: {{ '17pt' if page_size == 'A5' else '24pt' }}; color: #00427a; }
+.undertitel { font-size: {{ '9pt' if page_size == 'A5' else '12pt' }}; margin-top: 1mm; }
+
+/* Block packas i rader server-side; raderna ar block-divs som
+   WeasyPrint kan sidbryta mellan, blocken i raden ar inline-block. */
+.blockrad { font-size: 0; page-break-inside: avoid; margin-bottom: 3.5mm; }
+.block {
+  display: inline-block;
+  vertical-align: top;
+  font-size: {{ '8.5pt' if page_size == 'A5' else '11pt' }};
+  margin-right: 4mm;
+}
+.block-1 { width: 29%; }
+.block-2 { width: 62%; }
+.block-3 { width: 96%; }
+.ingen-dagar { font-size: 85%; color: #444; font-style: italic; margin-top: 0.5mm; }
+.blockrubrik { margin-bottom: 1.5mm; }
+.bricka {
+  display: inline-block;
+  background: #00427a;
+  color: #fff;
+  font-weight: bold;
+  padding: 0.4mm 2mm;
+  border-radius: 1.2mm;
+}
+.dagkolumner { display: flex; gap: 4mm; }
+.dagkol { flex: 1; }
+.dagkol h3 {
+  font-size: {{ '8pt' if page_size == 'A5' else '10pt' }};
+  border-bottom: 1px solid #999;
+  margin-bottom: 1mm;
+}
+table { border-collapse: collapse; width: 100%; }
+td.timme {
+  font-weight: bold;
+  text-align: right;
+  padding-right: 1.5mm;
+  width: 6mm;
+  border-right: 1px solid #bbb;
+}
+td.minuter { padding-left: 1.5mm; }
+td { vertical-align: top; font-variant-numeric: tabular-nums; }
+tr:nth-child(even) td { background: #eef3f8; }
+.variant { font-size: 70%; vertical-align: super; }
+.ingen { color: #555; font-style: italic; }
+.bokstavsforklaring { font-size: 85%; color: #333; margin-top: 1mm; }
+
+.noter { margin-top: 2mm; }
+.not {
+  background: #ffe89a;
+  padding: 1mm 2mm;
+  border-radius: 1.2mm;
+  margin-bottom: 1mm;
+  font-weight: bold;
+}
+
+footer {
+  margin-top: 3mm;
+  border-top: 1px solid #999;
+  padding-top: 2mm;
+  display: flex;
+  gap: 4mm;
+  align-items: flex-start;
+  font-size: {{ '6.5pt' if page_size == 'A5' else '8.5pt' }};
+  color: #333;
+}
+footer .qr { width: {{ '22mm' if page_size == 'A5' else '30mm' }}; flex-shrink: 0; }
+footer .qr img { width: 100%; }
+footer p { margin-bottom: 1mm; }
+.disclaimer { font-weight: bold; }
+
+{% if pagenr %}
+/* Sidnumrering nar en lapp blir flersidig - varje lapp ar ett eget
+   PDF-dokument sa counter(pages) ar lappens egna sidantal */
+h1 { string-set: hallplats content(); }
+@page {
+  @bottom-right {
+    content: string(hallplats) " - sida " counter(page) " av " counter(pages);
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 7pt;
+    color: #333;
+  }
+}
+{% endif %}

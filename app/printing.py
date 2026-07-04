@@ -8,9 +8,11 @@ saknar en dagtyp trafik i perioden markeras det, med not om nar
 nasta tabell borjar galla.
 """
 
+import io
 import sqlite3
 from datetime import date, datetime, timedelta
 
+import pypdf
 import segno
 import weasyprint
 
@@ -37,8 +39,28 @@ def _hour_groups(departures: list[tuple[int, str]]) -> list[dict]:
     return [{"hour": h, "minutes": mm} for h, mm in sorted(hours.items())]
 
 
-def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
-    today = datetime.now(tz=config.TZ).date()
+def line_day_plans(db: sqlite3.Connection, lines: list[str],
+                   today: date) -> dict[str, dict]:
+    """Per linje: vardagsdatum, tabellbytesdatum och datum per dagtyp
+    (None om dagtypen saknar trafik inom perioden). Berakningen ar
+    stationsoberoende och dyrast i hela lappflodet - gors en gang och
+    ateranvands for alla hallplatser i en batch."""
+    plans = {}
+    for line in lines:
+        vardag = timetable.find_service_day(db, line, "vardag", today)
+        if vardag is None:
+            continue
+        change = timetable.next_table_change(db, line, vardag)
+        days = {}
+        for day_key, _ in DAY_LABELS:
+            d = timetable.find_service_day(db, line, day_key, today)
+            days[day_key] = d if d and (change is None or d < change) else None
+        plans[line] = {"vardag": vardag, "change": change, "days": days}
+    return plans
+
+
+def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
+                       plans: dict[str, dict], today: date) -> dict:
     station_id = station["stop_id"]
 
     # (linje, riktning) -> block; dagkolumner fylls per dagtyp
@@ -46,23 +68,20 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
     changes: dict[date, list[str]] = {}
     future_starts: dict[date, list[str]] = {}
 
-    lines = [l["line"] for l in timetable.lines_at_station(db, station_id) if l["is_local"]]
+    lines = [l["line"] for l in timetable.lines_at_station(db, station_id)
+             if l["is_local"] and l["line"] in plans]
     natural_weekday = today
     while natural_weekday.weekday() > 4:
         natural_weekday += timedelta(days=1)
     for line in lines:
-        vardag = timetable.find_service_day(db, line, "vardag", today)
-        if vardag is None:
-            continue
-        change = timetable.next_table_change(db, line, vardag)
-        if change:
-            changes.setdefault(change, []).append(line)
-        if vardag > natural_weekday:
-            future_starts.setdefault(vardag, []).append(line)
+        plan = plans[line]
+        if plan["change"]:
+            changes.setdefault(plan["change"], []).append(line)
+        if plan["vardag"] > natural_weekday:
+            future_starts.setdefault(plan["vardag"], []).append(line)
         for day_key, day_label in DAY_LABELS:
-            d = timetable.find_service_day(db, line, day_key, today)
-            in_period = d is not None and (change is None or d < change)
-            rows = timetable.stop_day_departures(db, station_id, d) if in_period else []
+            d = plan["days"][day_key]
+            rows = timetable.stop_day_departures(db, station_id, d) if d else []
             for r in rows:
                 if r["line"] != line:
                     continue
@@ -134,9 +153,94 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row) -> dict:
     }
 
 
+def _render_one(context: dict, page_format: str) -> bytes:
+    """Rendera EN hallplats som eget PDF-dokument.
+
+    Varje lapp ar ett eget dokument sa att counter(page)/counter(pages)
+    blir lappens egen numrering. Blir lappen flersidig renderas den om
+    med sidfot "Hallplats - sida N av M" (margin-boxar paverkar inte
+    pagineringen, sa sidantalet ar stabilt mellan passen). Ensidiga
+    lappar far ingen sidfot.
+    """
+    kwargs = {"lapp": context, "page_size": PAGE_SIZES.get(page_format, "A5")}
+    template = templates.env.get_template("print/lapp.html")
+    doc = weasyprint.HTML(string=template.render(**kwargs, pagenr=False)).render()
+    if len(doc.pages) == 1:
+        return doc.write_pdf()
+    return weasyprint.HTML(string=template.render(**kwargs, pagenr=True)).write_pdf()
+
+
+# A5 stående resp. A4 liggande i PDF-punkter
+_A5_W, _A5_H = 419.528, 595.276
+_A4L_W, _A4L_H = 841.89, 595.276
+
+_twoup_base_cache: bytes | None = None
+
+
+def _twoup_base_page() -> bytes:
+    """A4-liggande grundark med streckad skarlinje i mitten (renderas en gang)."""
+    global _twoup_base_cache
+    if _twoup_base_cache is None:
+        html = ("<style>@page{size:A4 landscape;margin:0}"
+                "div{position:absolute;left:50%;top:5mm;height:287mm;width:0;"
+                "border-left:0.4mm dashed #888}</style><div></div>")
+        _twoup_base_cache = weasyprint.HTML(string=html).write_pdf()
+    return _twoup_base_cache
+
+
+def _impose_two_up(lapp_pdfs: list[bytes]) -> bytes:
+    """Tva A5-sidor per liggande A4-ark, med mittlinje att skara efter.
+
+    Sidorna paras ihop lopande over hela batchen (en flersidig lapps
+    sida 2 kan hamna bredvid nasta hallplats forsta) - sidfoten
+    "sida N av M" haller ihop lapparna vid uppsattning.
+    """
+    pages = [p for raw in lapp_pdfs for p in pypdf.PdfReader(io.BytesIO(raw)).pages]
+    base_reader = pypdf.PdfReader(io.BytesIO(_twoup_base_page()))
+    writer = pypdf.PdfWriter()
+    margin_x = (_A4L_W - 2 * _A5_W) / 2
+    for i in range(0, len(pages), 2):
+        sheet = writer.add_blank_page(width=_A4L_W, height=_A4L_H)
+        sheet.merge_page(base_reader.pages[0])
+        sheet.merge_transformed_page(
+            pages[i], pypdf.Transformation().translate(tx=margin_x, ty=0))
+        if i + 1 < len(pages):
+            sheet.merge_transformed_page(
+                pages[i + 1],
+                pypdf.Transformation().translate(tx=margin_x + _A5_W, ty=0))
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
+
+
 def render_lapp_pdf(db: sqlite3.Connection, station: sqlite3.Row,
                     page_format: str = "a5") -> bytes:
-    context = build_lapp_context(db, station)
-    context["page_size"] = PAGE_SIZES.get(page_format, "A5")
-    html = templates.env.get_template("print/lapp.html").render(context)
-    return weasyprint.HTML(string=html).write_pdf()
+    today = datetime.now(tz=config.TZ).date()
+    plans = line_day_plans(db, timetable.local_lines(db), today)
+    return _render_one(build_lapp_context(db, station, plans, today), page_format)
+
+
+def render_batch_pdf(db: sqlite3.Connection, stations: list[sqlite3.Row],
+                     page_format: str = "a5", two_up: bool = False,
+                     progress=None) -> bytes:
+    """En PDF med en hallplats per sida (flersidiga lappar sidnumreras).
+
+    two_up (bara A5): tva lappar per liggande A4-ark med skarlinje.
+    `progress(antal_klara)` anropas efter varje hallplats.
+    """
+    today = datetime.now(tz=config.TZ).date()
+    plans = line_day_plans(db, timetable.local_lines(db), today)
+    lapp_pdfs = []
+    for i, station in enumerate(stations):
+        context = build_lapp_context(db, station, plans, today)
+        lapp_pdfs.append(_render_one(context, page_format))
+        if progress:
+            progress(i + 1)
+    if two_up and page_format == "a5":
+        return _impose_two_up(lapp_pdfs)
+    writer = pypdf.PdfWriter()
+    for raw in lapp_pdfs:
+        writer.append(io.BytesIO(raw))
+    buf = io.BytesIO()
+    writer.write(buf)
+    return buf.getvalue()
