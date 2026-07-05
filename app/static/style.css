@@ -418,3 +418,5 @@ main:has(.studio) { max-width: 78rem; }
   transform: translate(-50%, -50%);
   display: inline-block;
 }
+
+.bokningsrad { color: var(--gra); margin: 0.5rem 0 0; }

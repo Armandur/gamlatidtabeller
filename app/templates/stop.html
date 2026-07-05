@@ -52,6 +52,11 @@
     <li class="tomt">Inga kommande avgångar hittades.</li>
     {% endfor %}
   </ol>
+  <div id="bokningsinfo">
+    {% for msg in booking_msgs %}
+    <p class="bokningsrad"><span class="lage">förbeställs</span> {{ msg }}</p>
+    {% endfor %}
+  </div>
 </section>
 
 <section aria-labelledby="karta-rubrik">

@@ -10,12 +10,14 @@ from app import config
 # darfor slas gardagens trafikdag ihop med dagens vid uppslag.
 _DEPARTURES_SQL = """
 SELECT st.departure_s, st.stop_seq, st.pickup, r.short_name AS line, r.is_local,
-       t.destination, t.trip_id, t.route_id, s.stop_id AS platform_stop_id, s.platform_code
+       t.destination, t.trip_id, t.route_id, s.stop_id AS platform_stop_id, s.platform_code,
+       COALESCE(br.message, '') AS booking_msg
 FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
 JOIN routes r ON r.route_id = t.route_id
 JOIN service_dates sd ON sd.service_id = t.service_id
+LEFT JOIN booking_rules br ON br.rule_id = st.booking_rule
 WHERE (s.parent_station = :sid OR s.stop_id = :sid)
   AND sd.date = :date AND st.is_last = 0 AND st.pickup != 1
   AND st.departure_s >= :from_s
@@ -40,12 +42,13 @@ GROUP BY r.short_name, r.is_local, t.destination
 _LINE_DAY_SQL = """
 SELECT t.trip_id, t.direction_id, t.destination, st.stop_seq, st.departure_s, st.pickup,
        COALESCE(NULLIF(s.parent_station, ''), s.stop_id) AS station_id,
-       s.name AS stop_name
+       s.name AS stop_name, COALESCE(br.message, '') AS booking_msg
 FROM trips t
 JOIN routes r ON r.route_id = t.route_id
 JOIN service_dates sd ON sd.service_id = t.service_id
 JOIN stop_times st ON st.trip_id = t.trip_id
 JOIN stops s ON s.stop_id = st.stop_id
+LEFT JOIN booking_rules br ON br.rule_id = st.booking_rule
 WHERE r.short_name = :line AND r.is_local = 1 AND sd.date = :date
 ORDER BY t.trip_id, st.stop_seq
 """
@@ -129,6 +132,7 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
                 "destination": r["destination"],
                 "platform": r["platform_code"],
                 "booking": r["pickup"] in (2, 3),
+                "booking_msg": r["booking_msg"] if r["pickup"] in (2, 3) else "",
                 "trip_id": r["trip_id"],
                 "route_id": r["route_id"],
                 "stop_seq": r["stop_seq"],
@@ -181,25 +185,28 @@ def line_table(db: sqlite3.Connection, line: str, service_date: date) -> list[di
             "direction_id": r["direction_id"], "destination": r["destination"],
             "stops": []})
         trip["stops"].append((r["station_id"], r["stop_name"], r["departure_s"],
-                              r["pickup"]))
+                              r["pickup"], r["booking_msg"]))
 
     directions = []
     for dir_id in sorted({t["direction_id"] for t in by_trip.values()}):
         trips = [t for t in by_trip.values() if t["direction_id"] == dir_id]
         trips.sort(key=lambda t: (len(t["stops"]), -t["stops"][0][2]), reverse=True)
         order, assignments = _align_stop_orders(
-            [[sid for sid, _, _, _ in t["stops"]] for t in trips])
-        names = {sid: name for t in trips for sid, name, _, _ in t["stops"]}
+            [[sid for sid, _, _, _, _ in t["stops"]] for t in trips])
+        names = {sid: name for t in trips for sid, name, _, _, _ in t["stops"]}
 
         # a = endast avstigande (pickup_type 1), f = forbestalls (2/3)
         used_marks = set()
+        booking_messages = set()
         columns = []
         for t, assign in zip(trips, assignments):
             times = [""] * len(order)
-            for (_, _, dep_s, pickup), row_idx in zip(t["stops"], assign):
+            for (_, _, dep_s, pickup, booking_msg), row_idx in zip(t["stops"], assign):
                 mark = "a" if pickup == 1 else "f" if pickup in (2, 3) else ""
                 if mark:
                     used_marks.add(mark)
+                if mark == "f" and booking_msg:
+                    booking_messages.add(booking_msg)
                 times[row_idx] = fmt_hhmm(dep_s) + mark
             columns.append({"destination": t["destination"],
                             "first_departure_s": t["stops"][0][2],
@@ -215,6 +222,7 @@ def line_table(db: sqlite3.Connection, line: str, service_date: date) -> list[di
             "stops": [{"station_id": sid, "name": names[sid]} for sid in order],
             "trips": columns,
             "marks": sorted(used_marks),
+            "booking_messages": sorted(booking_messages),
         })
     return directions
 
@@ -305,12 +313,14 @@ def line_route_ids(db: sqlite3.Connection, line: str) -> set[str]:
 # Lokala linjers avgangar fran en station en given trafikdag - underlag
 # for utskrivbara stolptidtabeller.
 _STOP_DAY_SQL = """
-SELECT r.short_name AS line, t.direction_id, t.destination, st.departure_s, st.pickup
+SELECT r.short_name AS line, t.direction_id, t.destination, st.departure_s, st.pickup,
+       COALESCE(br.message, '') AS booking_msg
 FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
 JOIN routes r ON r.route_id = t.route_id
 JOIN service_dates sd ON sd.service_id = t.service_id
+LEFT JOIN booking_rules br ON br.rule_id = st.booking_rule
 WHERE (s.parent_station = :sid OR s.stop_id = :sid)
   AND sd.date = :date AND st.is_last = 0 AND st.pickup != 1 AND r.is_local = 1
 ORDER BY st.departure_s

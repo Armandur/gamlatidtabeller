@@ -122,11 +122,13 @@ def stop_page(request: Request, station_id: str):
         route_ids, stop_ids = timetable.station_rt_keys(db, station_id)
     realtime_ok = realtime.enrich_departures(departures, now)
     alerts = realtime.alerts_for(route_ids, stop_ids)
+    booking_msgs = sorted({d["booking_msg"] for d in departures if d["booking_msg"]})
     return templates.TemplateResponse(request, "stop.html", {
         **_base_context(request),
         "station": station,
         "lines": lines,
         "departures": departures,
+        "booking_msgs": booking_msgs,
         "realtime_ok": realtime_ok,
         "alerts": alerts,
         "now_time": now.strftime("%H:%M"),

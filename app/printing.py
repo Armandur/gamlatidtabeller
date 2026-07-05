@@ -67,6 +67,7 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
     blocks: dict[tuple[str, int], dict] = {}
     changes: dict[date, list[str]] = {}
     future_starts: dict[date, list[str]] = {}
+    booking_messages: set[str] = set()
 
     lines = [l["line"] for l in timetable.lines_at_station(db, station_id)
              if l["is_local"] and l["line"] in plans]
@@ -89,6 +90,8 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
                     "line": line, "destinations": {}, "days": {}})
                 block["destinations"][r["destination"]] = \
                     block["destinations"].get(r["destination"], 0) + 1
+                if r["pickup"] in (2, 3) and r["booking_msg"]:
+                    booking_messages.add(r["booking_msg"])
                 block["days"].setdefault(day_key, []).append(
                     (r["departure_s"], r["destination"], r["pickup"]))
 
@@ -146,7 +149,8 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
         for b in out_blocks for col in b["day_cols"]
         for row in col["hours"] for _, letter in row["minutes"])
     if has_booking:
-        notes.append("f = turen förbeställs hos Din Tur (anropsstyrd trafik).")
+        for msg in sorted(booking_messages) or ["Turen förbeställs hos Din Tur."]:
+            notes.append(f"f = {msg}")
 
     meta = get_meta()
     live_url = f"{config.get_base_url()}/hallplats/{station_id}"
