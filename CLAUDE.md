@@ -56,6 +56,16 @@ LOCAL_LINES.
   i `stop_times.departure_s`.
 - Sommartrafik ligger som egna service_id (2026: 2 juli-14 aug, inga
   stadsbussar lör/sön, ingen 590 före 17 aug).
+- `pickup_type=1` (endast avstigande) förekommer flitigt (501:s
+  slutslinga m.fl.) - exkluderas ur avgångslistor/stolplappar men visas
+  med "a" i linjevyn. `pickup_type=2` = anropsstyrd (511:s helgturer) -
+  visas med "förbeställs"-badge resp. "f"-markör. Variantbokstäver för
+  grenar hoppar därför över a och f.
+- GTFS-tider har sekundupplösning (05:59:31); Din Turs officiella
+  tabeller avrundar till NÄRMASTE minut. `timetable.fmt_hhmm()` gör
+  samma sak - golva inte, det gav 1 min diff mot officiella tabellen.
+  Verifierat 2026-07-05 mot officiella 501-PDF:n (sommartabellen):
+  30/30 stickprovstider identiska efter fixen.
 
 ## Utskrift (app/printing.py)
 

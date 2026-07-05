@@ -66,10 +66,12 @@ def line_page(request: Request, line: str, typ: str = "vardag"):
         natural_next += timedelta(days=1)
     skips_ahead = rep_date is not None and rep_date > natural_next
 
-    # Bokstavsmarkering for grenvarianter (turer med annan slutdestination)
+    # Bokstavsmarkering for grenvarianter (turer med annan slutdestination).
+    # a och f ar reserverade for "endast avstigande" resp. "forbestalls".
+    variant_alphabet = "bcdeghijklmnopqrstuvxyz"
     for d in directions:
         if len(d["destinations"]) > 1:
-            letters = {dest: chr(ord("a") + i) for i, dest in enumerate(d["destinations"])}
+            letters = {dest: variant_alphabet[i] for i, dest in enumerate(d["destinations"])}
             d["variant_letters"] = letters
             for trip in d["trips"]:
                 trip["variant"] = letters[trip["destination"]]

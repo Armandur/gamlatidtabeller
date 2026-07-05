@@ -90,18 +90,21 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
                 block["destinations"][r["destination"]] = \
                     block["destinations"].get(r["destination"], 0) + 1
                 block["days"].setdefault(day_key, []).append(
-                    (r["departure_s"], r["destination"]))
+                    (r["departure_s"], r["destination"], r["pickup"]))
 
     out_blocks = []
     for (line, _dir), block in sorted(blocks.items()):
         dests = sorted(block["destinations"], key=block["destinations"].get, reverse=True)
-        letters = {d: chr(ord("a") + i) for i, d in enumerate(sorted(dests))} \
+        # a/f reserverade for avstigande/forbestalls-markorer
+        variant_alphabet = "bcdeghijklmnopqrstuvxyz"
+        letters = {d: variant_alphabet[i] for i, d in enumerate(sorted(dests))} \
             if len(dests) > 1 else {}
         # Dagar utan trafik blir en textrad i stallet for tom kolumn,
         # sa att blocket kan krympa och nasta linje lagga sig bredvid.
         day_cols, missing = [], []
         for day_key, day_label in DAY_LABELS:
-            deps = [(s, letters.get(dest, "")) for s, dest in block["days"].get(day_key, [])]
+            deps = [(s, letters.get(dest, "") + ("f" if pickup in (2, 3) else ""))
+                    for s, dest, pickup in block["days"].get(day_key, [])]
             if deps:
                 day_cols.append({"label": day_label, "hours": _hour_groups(deps)})
             else:
@@ -137,6 +140,13 @@ def build_lapp_context(db: sqlite3.Connection, station: sqlite3.Row,
     for d, note_lines in sorted(future_starts.items()):
         notes.append(f"Linje {_join_sv(note_lines)}: tiderna gäller först från "
                      f"{timetable.format_date_sv(d)} - ingen trafik just nu.")
+
+    has_booking = any(
+        letter.endswith("f")
+        for b in out_blocks for col in b["day_cols"]
+        for row in col["hours"] for _, letter in row["minutes"])
+    if has_booking:
+        notes.append("f = turen förbeställs hos Din Tur (anropsstyrd trafik).")
 
     meta = get_meta()
     live_url = f"{config.get_base_url()}/hallplats/{station_id}"

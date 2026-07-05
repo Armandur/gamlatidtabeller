@@ -17,6 +17,7 @@
     const extras =
       (d.platform ? ' <span class="lage">läge ' + escapeHtml(d.platform) + "</span>" : "") +
       (d.day_label ? ' <span class="annandag">' + escapeHtml(d.day_label) + "</span>" : "") +
+      (d.booking ? ' <span class="lage">förbeställs</span>' : "") +
       (d.canceled ? ' <span class="installd-badge">Inställd</span>' : "");
     const om = !d.canceled && d.in_minutes < 60 && !d.day_label ? "om " + d.in_minutes + " min" : "";
     return "<li" + (d.canceled ? ' class="installd"' : "") + ">" +

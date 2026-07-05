@@ -43,6 +43,7 @@
       <span class="mot">mot {{ d.destination }}
         {%- if d.platform %} <span class="lage">läge {{ d.platform }}</span>{% endif %}
         {%- if d.day_label %} <span class="annandag">{{ d.day_label }}</span>{% endif %}
+        {%- if d.booking %} <span class="lage">förbeställs</span>{% endif %}
         {%- if d.canceled %} <span class="installd-badge">Inställd</span>{% endif %}
       </span>
       <span class="om">{% if not d.canceled and d.in_minutes < 60 and not d.day_label %}om {{ d.in_minutes }} min{% endif %}</span>
