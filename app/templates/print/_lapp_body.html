@@ -19,7 +19,7 @@
       <table>
         {% for row in col.hours %}
         <tr>
-          <td class="timme">{{ row.hour }}</td>
+          <td class="timme">{{ "%02d" | format(row.hour) }}</td>
           <td class="minuter">{% for mm, letter in row.minutes %}{{ "%02d" | format(mm) }}{% if letter %}<span class="variant">{{ letter }}</span>{% endif %} {% endfor %}</td>
         </tr>
         {% endfor %}
