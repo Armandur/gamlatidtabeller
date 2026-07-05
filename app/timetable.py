@@ -9,15 +9,16 @@ from app import config
 # OBS: en trafikdags turer kan ga efter midnatt (departure_s > 86400),
 # darfor slas gardagens trafikdag ihop med dagens vid uppslag.
 _DEPARTURES_SQL = """
-SELECT st.departure_s, st.stop_seq, r.short_name AS line, r.is_local, t.destination,
-       t.trip_id, t.route_id, s.stop_id AS platform_stop_id, s.platform_code
+SELECT st.departure_s, st.stop_seq, st.pickup, r.short_name AS line, r.is_local,
+       t.destination, t.trip_id, t.route_id, s.stop_id AS platform_stop_id, s.platform_code
 FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
 JOIN routes r ON r.route_id = t.route_id
 JOIN service_dates sd ON sd.service_id = t.service_id
 WHERE (s.parent_station = :sid OR s.stop_id = :sid)
-  AND sd.date = :date AND st.is_last = 0 AND st.departure_s >= :from_s
+  AND sd.date = :date AND st.is_last = 0 AND st.pickup != 1
+  AND st.departure_s >= :from_s
 ORDER BY st.departure_s
 LIMIT :limit
 """
@@ -28,7 +29,8 @@ FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
 JOIN routes r ON r.route_id = t.route_id
-WHERE (s.parent_station = :sid OR s.stop_id = :sid) AND st.is_last = 0
+WHERE (s.parent_station = :sid OR s.stop_id = :sid)
+  AND st.is_last = 0 AND st.pickup != 1
 GROUP BY r.short_name, r.is_local, t.destination
 """
 
@@ -36,7 +38,7 @@ GROUP BY r.short_name, r.is_local, t.destination
 # Hela tidtabellen for en linje pa en trafikdag: alla halltider,
 # grupperade per riktning i Python-lagret.
 _LINE_DAY_SQL = """
-SELECT t.trip_id, t.direction_id, t.destination, st.stop_seq, st.departure_s,
+SELECT t.trip_id, t.direction_id, t.destination, st.stop_seq, st.departure_s, st.pickup,
        COALESCE(NULLIF(s.parent_station, ''), s.stop_id) AS station_id,
        s.name AS stop_name
 FROM trips t
@@ -51,6 +53,15 @@ ORDER BY t.trip_id, st.stop_seq
 
 def _midnight(d: date) -> datetime:
     return datetime(d.year, d.month, d.day, tzinfo=config.TZ)
+
+
+def fmt_hhmm(dep_s: int) -> str:
+    """Sekunder -> HH:MM avrundat till narmaste minut, som Din Turs
+    officiella tabeller (GTFS har sekunduppslosning, t.ex. 05:59:31
+    visas som 06:00). Golvning gav 1 min diff mot officiella tabellen
+    pa interpolerade hallplatser."""
+    m = (dep_s + 30) // 60
+    return f"{m // 60 % 24:02d}:{m % 60:02d}"
 
 
 def _line_sort_key(line: str):
@@ -108,7 +119,7 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
             days_ahead = (when.date() - today).days
             departures.append({
                 "when": when,
-                "time": when.strftime("%H:%M"),
+                "time": fmt_hhmm(r["departure_s"]),
                 "in_minutes": max(0, int((when - now).total_seconds() // 60)),
                 "day_label": ("" if days_ahead == 0 else
                               "i morgon" if days_ahead == 1 else
@@ -117,6 +128,7 @@ def upcoming_departures(db: sqlite3.Connection, station_id: str,
                 "is_local": bool(r["is_local"]),
                 "destination": r["destination"],
                 "platform": r["platform_code"],
+                "booking": r["pickup"] in (2, 3),
                 "trip_id": r["trip_id"],
                 "route_id": r["route_id"],
                 "stop_seq": r["stop_seq"],
@@ -168,21 +180,27 @@ def line_table(db: sqlite3.Connection, line: str, service_date: date) -> list[di
         trip = by_trip.setdefault(r["trip_id"], {
             "direction_id": r["direction_id"], "destination": r["destination"],
             "stops": []})
-        trip["stops"].append((r["station_id"], r["stop_name"], r["departure_s"]))
+        trip["stops"].append((r["station_id"], r["stop_name"], r["departure_s"],
+                              r["pickup"]))
 
     directions = []
     for dir_id in sorted({t["direction_id"] for t in by_trip.values()}):
         trips = [t for t in by_trip.values() if t["direction_id"] == dir_id]
         trips.sort(key=lambda t: (len(t["stops"]), -t["stops"][0][2]), reverse=True)
         order, assignments = _align_stop_orders(
-            [[sid for sid, _, _ in t["stops"]] for t in trips])
-        names = {sid: name for t in trips for sid, name, _ in t["stops"]}
+            [[sid for sid, _, _, _ in t["stops"]] for t in trips])
+        names = {sid: name for t in trips for sid, name, _, _ in t["stops"]}
 
+        # a = endast avstigande (pickup_type 1), f = forbestalls (2/3)
+        used_marks = set()
         columns = []
         for t, assign in zip(trips, assignments):
             times = [""] * len(order)
-            for (_, _, dep_s), row_idx in zip(t["stops"], assign):
-                times[row_idx] = f"{dep_s // 3600 % 24:02d}:{dep_s % 3600 // 60:02d}"
+            for (_, _, dep_s, pickup), row_idx in zip(t["stops"], assign):
+                mark = "a" if pickup == 1 else "f" if pickup in (2, 3) else ""
+                if mark:
+                    used_marks.add(mark)
+                times[row_idx] = fmt_hhmm(dep_s) + mark
             columns.append({"destination": t["destination"],
                             "first_departure_s": t["stops"][0][2],
                             "times": times})
@@ -196,6 +214,7 @@ def line_table(db: sqlite3.Connection, line: str, service_date: date) -> list[di
             "destinations": destinations,
             "stops": [{"station_id": sid, "name": names[sid]} for sid in order],
             "trips": columns,
+            "marks": sorted(used_marks),
         })
     return directions
 
@@ -286,14 +305,14 @@ def line_route_ids(db: sqlite3.Connection, line: str) -> set[str]:
 # Lokala linjers avgangar fran en station en given trafikdag - underlag
 # for utskrivbara stolptidtabeller.
 _STOP_DAY_SQL = """
-SELECT r.short_name AS line, t.direction_id, t.destination, st.departure_s
+SELECT r.short_name AS line, t.direction_id, t.destination, st.departure_s, st.pickup
 FROM stop_times st
 JOIN stops s ON s.stop_id = st.stop_id
 JOIN trips t ON t.trip_id = st.trip_id
 JOIN routes r ON r.route_id = t.route_id
 JOIN service_dates sd ON sd.service_id = t.service_id
 WHERE (s.parent_station = :sid OR s.stop_id = :sid)
-  AND sd.date = :date AND st.is_last = 0 AND r.is_local = 1
+  AND sd.date = :date AND st.is_last = 0 AND st.pickup != 1 AND r.is_local = 1
 ORDER BY st.departure_s
 """
 

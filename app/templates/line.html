@@ -30,11 +30,13 @@
 {% for d in directions %}
 <section aria-labelledby="riktning-{{ d.direction_id }}">
   <h2 id="riktning-{{ d.direction_id }}">Mot {{ d.destinations | join(' / ') }}</h2>
-  {% if d.variant_letters %}
+  {% if d.variant_letters or d.marks %}
   <p class="variantforklaring">
     {% for dest, letter in d.variant_letters.items() %}
     <span><strong>{{ letter }}</strong> = mot {{ dest }}</span>
     {% endfor %}
+    {% if 'a' in d.marks %}<span><strong>a</strong> = endast avstigande</span>{% endif %}
+    {% if 'f' in d.marks %}<span><strong>f</strong> = förbeställs (anropsstyrd trafik)</span>{% endif %}
   </p>
   {% endif %}
   <div class="tabellrull" tabindex="0" role="region"

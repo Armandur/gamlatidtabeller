@@ -163,7 +163,8 @@ def enrich_departures(departures: list[dict], now: datetime) -> bool:
             actual_epoch = scheduled_epoch + update["delay"]
         else:
             continue
-        actual = datetime.fromtimestamp(actual_epoch, tz=config.TZ)
+        # Avrunda till narmaste minut, samma konvention som tidtabellstiderna
+        actual = datetime.fromtimestamp(round(actual_epoch / 60) * 60, tz=config.TZ)
         dep["delay_min"] = round((actual_epoch - scheduled_epoch) / 60)
         dep["display_time"] = actual.strftime("%H:%M")
         dep["in_minutes"] = max(0, int((actual_epoch - now.timestamp()) // 60))
