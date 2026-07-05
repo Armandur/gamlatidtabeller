@@ -36,7 +36,10 @@
     <span><strong>{{ letter }}</strong> = mot {{ dest }}</span>
     {% endfor %}
     {% if 'a' in d.marks %}<span><strong>a</strong> = endast avstigande</span>{% endif %}
-    {% if 'f' in d.marks %}<span><strong>f</strong> = förbeställs (anropsstyrd trafik)</span>{% endif %}
+    {% if 'f' in d.marks %}
+      {% for msg in d.booking_messages %}<span><strong>f</strong> = {{ msg }}</span>
+      {% else %}<span><strong>f</strong> = förbeställs (anropsstyrd trafik)</span>{% endfor %}
+    {% endif %}
   </p>
   {% endif %}
   <div class="tabellrull" tabindex="0" role="region"

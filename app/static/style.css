@@ -404,3 +404,5 @@ main:has(.studio) { max-width: 78rem; }
 #nara-resultat li { padding: 0.35rem 0; }
 #nara-resultat a { font-weight: 600; }
 .avstand { color: var(--gra); margin-left: 0.4rem; }
+
+.bokningsrad { color: var(--gra); margin: 0.5rem 0 0; }

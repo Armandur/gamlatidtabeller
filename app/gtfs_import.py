@@ -58,7 +58,12 @@ CREATE TABLE stop_times (
     departure_s INTEGER NOT NULL,
     is_last INTEGER NOT NULL DEFAULT 0,
     pickup INTEGER NOT NULL DEFAULT 0,
+    booking_rule TEXT NOT NULL DEFAULT '',
     PRIMARY KEY (trip_id, stop_seq)
+);
+CREATE TABLE booking_rules (
+    rule_id TEXT PRIMARY KEY,
+    message TEXT NOT NULL
 );
 CREATE TABLE service_dates (
     service_id TEXT NOT NULL,
@@ -122,6 +127,8 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
         routes = {r["route_id"]: r for r in _read_csv(zf, "routes.txt")}
         trips = {t["trip_id"]: t for t in _read_csv(zf, "trips.txt")}
         stops = {s["stop_id"]: s for s in _read_csv(zf, "stops.txt")}
+        booking_rules = {r["booking_rule_id"]: r["message"]
+                         for r in _read_csv(zf, "booking_rules.txt")}
         calendar = _read_csv(zf, "calendar.txt")
         calendar_dates = _read_csv(zf, "calendar_dates.txt")
         feed_info = _read_csv(zf, "feed_info.txt")
@@ -132,7 +139,8 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
                 stop_times.setdefault(row["trip_id"], []).append(
                     (int(row["stop_sequence"]), row["stop_id"],
                      _time_to_seconds(row["departure_time"]),
-                     int(row["pickup_type"] or 0)))
+                     int(row["pickup_type"] or 0),
+                     row["pickup_booking_rule_id"]))
 
     local_route_ids = {rid for rid, r in routes.items()
                        if r["route_short_name"] in config.get_local_lines()}
@@ -142,7 +150,7 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
     # Hallplatser (stationsniva) dar nagon lokal linje stannar
     scope_stations = set()
     for tid in local_trip_ids:
-        for _, stop_id, _, _ in stop_times.get(tid, []):
+        for _, stop_id, _, _, _ in stop_times.get(tid, []):
             stop = stops[stop_id]
             scope_stations.add(stop["parent_station"] or stop_id)
 
@@ -182,14 +190,18 @@ def build_database(zip_path: Path = config.GTFS_ZIP_PATH,
     for tid, kept_rows in kept_trips.items():
         t = trips[tid]
         full_rows = stop_times[tid]
-        last_seq, last_stop_id, _, _ = max(full_rows)
+        last_seq, last_stop_id, _, _, _ = max(full_rows)
         destination = stops[last_stop_id]["stop_name"]
         trip_rows.append((tid, t["route_id"], t["service_id"],
                           int(t["direction_id"] or 0), destination))
-        for seq, stop_id, dep_s, pickup in kept_rows:
-            st_rows.append((tid, seq, stop_id, dep_s, int(seq == last_seq), pickup))
+        for seq, stop_id, dep_s, pickup, rule_id in kept_rows:
+            st_rows.append((tid, seq, stop_id, dep_s, int(seq == last_seq),
+                            pickup, rule_id))
     db.executemany("INSERT INTO trips VALUES (?, ?, ?, ?, ?)", trip_rows)
-    db.executemany("INSERT INTO stop_times VALUES (?, ?, ?, ?, ?, ?)", st_rows)
+    db.executemany("INSERT INTO stop_times VALUES (?, ?, ?, ?, ?, ?, ?)", st_rows)
+    used_rules = {r[6] for r in st_rows if r[6]}
+    db.executemany("INSERT INTO booking_rules VALUES (?, ?)",
+                   [(rid, booking_rules.get(rid, "")) for rid in used_rules])
     db.executemany("INSERT INTO service_dates VALUES (?, ?)", service_date_rows)
 
     stats = {

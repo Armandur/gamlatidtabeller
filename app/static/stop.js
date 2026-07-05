@@ -31,6 +31,12 @@
     list.innerHTML = data.departures.length
       ? data.departures.map(renderDeparture).join("")
       : '<li class="tomt">Inga kommande avgångar hittades.</li>';
+    const msgs = Array.from(new Set(
+      data.departures.map((d) => d.booking_msg).filter(Boolean))).sort();
+    document.getElementById("bokningsinfo").innerHTML = msgs.map(function (m) {
+      return '<p class="bokningsrad"><span class="lage">förbeställs</span> ' +
+        escapeHtml(m) + "</p>";
+    }).join("");
     alertBox.innerHTML = data.alerts.map(function (a) {
       return '<div class="storning"><strong>' + escapeHtml(a.header) + "</strong>" +
         (a.description ? "<br>" + escapeHtml(a.description) : "") + "</div>";
