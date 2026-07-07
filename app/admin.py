@@ -221,3 +221,49 @@ def all_vehicles(request: Request):
             "requests_today": realtime.state.requests_today,
             "generated_at": datetime.now(tz=config.TZ).strftime("%H:%M:%S"),
             "vehicles": vehicles}
+
+
+@app.get("/tur/{trip_id}")
+def trip_view(request: Request, trip_id: str):
+    """Diagnostik: en turs halltider hos oss, med realtidsavvikelser."""
+    if not _logged_in(request):
+        return RedirectResponse("/logga-in", 302)
+    realtime.mark_activity()
+    from app import timetable
+    with open_db() as db:
+        head = db.execute(
+            "SELECT t.trip_id, t.destination, t.service_id, r.short_name, r.is_local "
+            "FROM trips t JOIN routes r ON r.route_id = t.route_id "
+            "WHERE t.trip_id = ?", (trip_id,)).fetchone()
+        if head is None:
+            raise HTTPException(404, "Turen finns inte i vår databas.")
+        rows = db.execute(
+            "SELECT st.stop_seq, st.departure_s, st.pickup, st.stop_id, s.name, "
+            "COALESCE(NULLIF(s.parent_station, ''), s.stop_id) AS station_id "
+            "FROM stop_times st JOIN stops s ON s.stop_id = st.stop_id "
+            "WHERE st.trip_id = ? ORDER BY st.stop_seq", (trip_id,)).fetchall()
+
+    trip_rt = realtime.state.trip_updates.get(trip_id) if realtime.state.fresh else None
+    canceled = bool(trip_rt and trip_rt["canceled"])
+    stops = []
+    for r in rows:
+        delay_min = None
+        if trip_rt and not canceled:
+            u = realtime._resolve_update(trip_rt, r["stop_seq"], r["stop_id"])
+            if u and u["delay"] is not None:
+                delay_min = round(u["delay"] / 60)
+        stops.append({
+            "time": timetable.fmt_hhmm(r["departure_s"]),
+            "delay_min": delay_min,
+            "name": r["name"],
+            "station_id": r["station_id"],
+            "mark": "a" if r["pickup"] == 1 else "f" if r["pickup"] in (2, 3) else "",
+        })
+    return templates.TemplateResponse(request, "admin/tur.html", {
+        "request": request,
+        "head": head,
+        "stops": stops,
+        "canceled": canceled,
+        "has_rt": trip_rt is not None,
+        "publik_bas": config.get_base_url(),
+    })

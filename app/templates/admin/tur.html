@@ -1,0 +1,36 @@
+{% extends "admin/base.html" %}
+{% block title %}Tur {{ head['trip_id'] }} - Admin{% endblock %}
+{% block content %}
+<div class="admin-topp">
+  <h1><span class="linjebricka stor">{{ head['short_name'] }}</span> mot {{ head['destination'] }}</h1>
+  <a class="knapp sekundar" href="/karta">Till fordonskartan</a>
+</div>
+<p class="uppdaterad">Tur <code>{{ head['trip_id'] }}</code>
+  {% if has_rt %} · realtidsdata finns för turen{% else %} · ingen realtidsdata just nu{% endif %}
+  {% if not head['is_local'] %} · regional linje - visar bara hållplatser inom vårt område{% endif %}</p>
+
+{% if canceled %}<p class="varning">Turen är INSTÄLLD enligt realtidsdata.</p>{% endif %}
+
+<section class="admin-kort">
+  <table class="turtabell">
+    <thead><tr><th>Tid</th><th>Avvikelse</th><th>Hållplats</th><th></th></tr></thead>
+    <tbody>
+      {% for s in stops %}
+      <tr>
+        <td><strong>{{ s.time }}</strong>{% if s.mark %}<span class="variant">{{ s.mark }}</span>{% endif %}</td>
+        <td>{% if s.delay_min is not none %}{% if s.delay_min %}{{ '%+d' | format(s.delay_min) }} min{% else %}i tid{% endif %}{% else %}–{% endif %}</td>
+        <td>{{ s.name }}</td>
+        <td><a href="{{ publik_bas }}/hallplats/{{ s.station_id }}" target="_blank" rel="noopener">hållplatssida</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p class="hjalptext">a = endast avstigande, f = förbeställs. Avvikelse enligt senaste
+  TripUpdates-data när turen är aktiv.</p>
+</section>
+<style>
+.turtabell { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.turtabell th, .turtabell td { text-align: left; padding: 0.35rem 0.8rem 0.35rem 0; border-bottom: 1px solid var(--ljusgra); }
+.turtabell .variant { font-size: 75%; vertical-align: super; }
+</style>
+{% endblock %}

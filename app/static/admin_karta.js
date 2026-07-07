@@ -33,20 +33,27 @@
       statusEl.textContent = "Kunde inte hämta fordon: " + err.message;
       return;
     }
+    // Rita inte om medan en popup ar oppen - annars stangs den mitt
+    // framfor ogonen pa den som klickat pa en buss
+    if (map._popup && map._popup.isOpen()) return;
     layer.clearLayers();
     const points = [];
     for (const v of data.vehicles) {
       points.push([v.lat, v.lon]);
       const badge = v.local ? "linjebricka" : "linjebricka regional";
+      const info = esc(v.line) + (v.destination ? " mot " + esc(v.destination) : "");
       L.marker([v.lat, v.lon], {
         icon: L.divIcon({
           className: "fordonsikon",
           html: '<span class="' + badge + '">' + esc(v.line) + "</span>",
           iconSize: null,
         }),
-      }).bindTooltip(esc(v.line) + (v.destination ? " mot " + esc(v.destination) : "") +
-                     " · tur " + esc(v.trip_id) +
+      }).bindTooltip(info + " · tur " + esc(v.trip_id) +
                      (v.age_s !== null ? " · " + v.age_s + " s sedan" : ""))
+        .bindPopup("<strong>" + info + "</strong><br>Tur " + esc(v.trip_id) + "<br>" +
+                   (v.known
+                     ? '<a href="/tur/' + encodeURIComponent(v.trip_id) + '">Visa turens hålltider</a>'
+                     : "Utanför Härnösands-området - ingen tabell i databasen."))
         .addTo(layer);
     }
     statusEl.textContent = data.vehicles.length + " fordon i feeden" +
