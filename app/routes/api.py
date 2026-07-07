@@ -23,8 +23,9 @@ def status():
 
 
 @router.get("/hallplats/{station_id}/avgangar")
-def departures(station_id: str, limit: int = 20):
+def departures(station_id: str, limit: int = 20, karta: bool = False):
     """Kommande avgangar - pollas av hallplatssidan for uppdatering."""
+    realtime.mark_activity(map_interest=karta)
     now = datetime.now(tz=config.TZ)
     with open_db() as db:
         station = timetable.get_station(db, station_id)
@@ -34,7 +35,9 @@ def departures(station_id: str, limit: int = 20):
         route_ids, stop_ids = timetable.station_rt_keys(db, station_id)
     realtime_ok = realtime.enrich_departures(deps, now)
     alerts = realtime.alerts_for(route_ids, stop_ids)
+    vehicles = realtime.vehicles_for_departures(deps)
     for d in deps:
         d["when"] = d["when"].isoformat(timespec="minutes")
     return {"station": station["name"], "generated_at": now.strftime("%H:%M"),
-            "realtime_ok": realtime_ok, "alerts": alerts, "departures": deps}
+            "realtime_ok": realtime_ok, "alerts": alerts,
+            "vehicles": vehicles, "departures": deps}

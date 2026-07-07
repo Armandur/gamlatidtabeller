@@ -405,4 +405,18 @@ main:has(.studio) { max-width: 78rem; }
 #nara-resultat a { font-weight: 600; }
 .avstand { color: var(--gra); margin-left: 0.4rem; }
 
+/* Var ar bussen-kartan */
+#fordonskarta {
+  height: 22rem;
+  margin-top: 0.8rem;
+  border: 1px solid var(--ljusgra);
+  border-radius: 8px;
+}
+.fordonsikon { background: none; border: none; }
+.fordonsikon .linjebricka {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  transform: translate(-50%, -50%);
+  display: inline-block;
+}
+
 .bokningsrad { color: var(--gra); margin: 0.5rem 0 0; }

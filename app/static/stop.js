@@ -8,6 +8,7 @@
   const alertBox = document.getElementById("storningar");
   const rtStatus = document.getElementById("rt-status");
   const updatedAt = document.getElementById("uppdaterad-kl");
+  let latestVehicles = [];
 
   function renderDeparture(d) {
     const badge = d.is_local ? "linjebricka" : "linjebricka regional";
@@ -45,17 +46,86 @@
       ? 'Tider med grön punkt (<span class="rt-prick" aria-hidden="true"></span>) uppdateras i realtid.'
       : "Visar tidtabellstid - realtid saknas just nu.";
     updatedAt.textContent = data.generated_at;
+    latestVehicles = data.vehicles || [];
+    renderVehicles();
   }
 
   async function refresh() {
     try {
-      const data = await apiFetch("/api/hallplats/" + encodeURIComponent(window.STATION_ID) + "/avgangar");
+      const data = await apiFetch("/api/hallplats/" + encodeURIComponent(window.STATION_ID) +
+        "/avgangar" + (map ? "?karta=1" : ""));
       render(data);
     } catch (err) {
       // Behall senast visade lista; ny chans vid nasta tick
       console.warn("Kunde inte uppdatera avgångar:", err);
     }
   }
+
+  // "Var ar bussen?" - Leaflet och kartan laddas forst nar anvandaren
+  // ber om den (150 kB extra ar inte gratis pa dalig uppkoppling).
+  const mapBtn = document.getElementById("visa-karta");
+  const mapDiv = document.getElementById("fordonskarta");
+  const mapStatus = document.getElementById("karta-status");
+  let map = null;
+  let vehicleLayer = null;
+
+  function loadLeaflet(done) {
+    if (window.L) { done(); return; }
+    const css = document.createElement("link");
+    css.rel = "stylesheet";
+    css.href = "/static/vendor/leaflet/leaflet.css";
+    document.head.appendChild(css);
+    const js = document.createElement("script");
+    js.src = "/static/vendor/leaflet/leaflet.js";
+    js.onload = done;
+    js.onerror = function () { mapStatus.textContent = "Kartan kunde inte laddas."; };
+    document.head.appendChild(js);
+  }
+
+  function renderVehicles() {
+    if (!map) return;
+    vehicleLayer.clearLayers();
+    const points = [window.STATION_POS];
+    for (const v of latestVehicles) {
+      points.push([v.lat, v.lon]);
+      L.marker([v.lat, v.lon], {
+        icon: L.divIcon({
+          className: "fordonsikon",
+          html: '<span class="linjebricka">' + escapeHtml(v.line) + "</span>",
+          iconSize: null,
+        }),
+      }).bindTooltip(escapeHtml(v.line) + " mot " + escapeHtml(v.destination) +
+                     (v.age_s !== null ? " · " + v.age_s + " s sedan" : ""))
+        .addTo(vehicleLayer);
+    }
+    mapStatus.textContent = latestVehicles.length
+      ? latestVehicles.length + (latestVehicles.length === 1 ? " buss" : " bussar") +
+        " med känd position visas på kartan."
+      : "Ingen buss på väg hit har känd position just nu.";
+    if (points.length > 1) {
+      map.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 15 });
+    }
+  }
+
+  mapBtn.addEventListener("click", function () {
+    mapBtn.disabled = true;
+    mapStatus.textContent = "Laddar kartan ...";
+    loadLeaflet(function () {
+      mapDiv.hidden = false;
+      map = L.map("fordonskarta").setView(window.STATION_POS, 14);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+      L.circleMarker(window.STATION_POS, {
+        radius: 9, color: "#00427a", fillColor: "#00427a", fillOpacity: 0.9,
+      }).bindTooltip("Hållplatsen").addTo(map);
+      vehicleLayer = L.layerGroup().addTo(map);
+      mapBtn.hidden = true;
+      renderVehicles();
+      refresh();
+    });
+  });
 
   setInterval(refresh, 30000);
 })();

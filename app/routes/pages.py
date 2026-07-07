@@ -48,6 +48,7 @@ def index(request: Request):
 def line_page(request: Request, line: str, typ: str = "vardag"):
     if typ not in timetable.DAY_TYPES:
         raise HTTPException(404, "Okänd dagtyp")
+    realtime.mark_activity()
     today = datetime.now(tz=config.TZ).date()
     with open_db() as db:
         if line not in timetable.local_lines(db):
@@ -112,6 +113,7 @@ def lapp_pdf(request: Request, station_id: str, format: str = "a5"):
 
 @router.get("/hallplats/{station_id}")
 def stop_page(request: Request, station_id: str):
+    realtime.mark_activity()
     now = datetime.now(tz=config.TZ)
     with open_db() as db:
         station = timetable.get_station(db, station_id)
