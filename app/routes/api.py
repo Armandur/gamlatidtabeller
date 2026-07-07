@@ -23,8 +23,9 @@ def status():
 
 
 @router.get("/hallplats/{station_id}/avgangar")
-def departures(station_id: str, limit: int = 20):
+def departures(station_id: str, limit: int = 20, karta: bool = False):
     """Kommande avgangar - pollas av hallplatssidan for uppdatering."""
+    realtime.mark_activity(map_interest=karta)
     now = datetime.now(tz=config.TZ)
     with open_db() as db:
         station = timetable.get_station(db, station_id)

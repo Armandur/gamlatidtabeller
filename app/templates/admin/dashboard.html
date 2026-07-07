@@ -52,6 +52,8 @@ Sätt det i miljön i drift, även om porten inte exponeras publikt.</p>
     <dt>Senaste hämtning</dt><dd>{{ rt_age ~ ' s sedan' if rt_age is not none else 'aldrig (startas med publika appen)' }}</dd>
     <dt>Turer i minnet</dt><dd>{{ rt_trips }}</dd>
     <dt>Störningar</dt><dd>{{ rt_alerts }}</dd>
+    <dt>API-anrop i dag</dt><dd>{{ rt_requests_today }} (kvot: 30 000/30 dagar - pollning sker bara när appen används)</dd>
+    {% if rt_backoff %}<dt>Kvotläge</dt><dd><span class="admin-status-fel">429 - pollning pausad</span></dd>{% endif %}
   </dl>
 </section>
 

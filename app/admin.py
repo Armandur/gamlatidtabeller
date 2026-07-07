@@ -115,6 +115,8 @@ def dashboard(request: Request):
         "rt_age": f"{rt_age:.0f}" if rt_age is not None else None,
         "rt_trips": len(realtime.state.trip_updates),
         "rt_alerts": len(realtime.state.alerts),
+        "rt_requests_today": realtime.state.requests_today,
+        "rt_backoff": realtime.state.backoff_until > time.time(),
         "jobs": jobs,
         "local_lines": ", ".join(sorted(config.get_local_lines())),
         "base_url": config.get_base_url(),

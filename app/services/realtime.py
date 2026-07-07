@@ -1,15 +1,22 @@
-"""GTFS-RT-poller: TripUpdates och ServiceAlerts i minnet.
+"""GTFS-RT-poller: TripUpdates, ServiceAlerts och VehiclePositions i minnet.
 
-En bakgrundstask hamtar feedsen var POLL_INTERVAL sekund och byter
-referenserna atomiskt - lashandlers behover inga las. Ar feedsen nere
-behalls senast kanda data; ar datat aldre an STALE_AFTER behandlas
+KVOT: RT-nyckeln har 30 000 anrop per rullande 30 dagar (Bronze) - det
+racker INTE for kontinuerlig pollning (lardom 2026-07-07: 3 feeds var
+20:e sekund brande hela kvoten pa tva dygn). Darfor ar pollningen
+behovsstyrd: feeds hamtas bara nar nagon faktiskt anvander appen
+(mark_activity() satts av sidorna/API:t), TripUpdates var 30:e sekund,
+ServiceAlerts var 5:e minut och VehiclePositions bara nar nagon har
+kartan oppen. Vid 429 backar pollern av rejalt.
+
+Referenserna byts atomiskt - lashandlers behover inga las. Ar feedsen
+nere behalls senast kanda data; ar datat aldre an STALE_AFTER behandlas
 realtid som otillganglig och appen faller tillbaka pa tidtabellstid.
 """
 
 import asyncio
 import logging
 import time
-from datetime import datetime
+from datetime import date, datetime
 
 import httpx
 from google.transit import gtfs_realtime_pb2
@@ -18,8 +25,11 @@ from app import config
 
 log = logging.getLogger(__name__)
 
-POLL_INTERVAL = 20
-STALE_AFTER = 90
+POLL_INTERVAL = 30        # TripUpdates/VehiclePositions nar nagon ar aktiv
+ALERT_INTERVAL = 300      # ServiceAlerts andras sallan
+ACTIVE_WINDOW = 90        # så lange raknas en klient som aktiv efter sidvisning
+STALE_AFTER = 120
+BACKOFF_429 = 30 * 60     # kvoten ar slut - lugna ner sig ordentligt
 
 
 class RealtimeState:
@@ -28,13 +38,36 @@ class RealtimeState:
         self.alerts: list[dict] = []
         self.vehicle_positions: dict[str, dict] = {}
         self.updated_at: float | None = None
+        self.last_activity = 0.0
+        self.map_activity = 0.0
+        self.backoff_until = 0.0
+        self.requests_today = 0
+        self._requests_day: date | None = None
+        self.wake = asyncio.Event()
 
     @property
     def fresh(self) -> bool:
         return self.updated_at is not None and time.time() - self.updated_at < STALE_AFTER
 
+    def count_requests(self, n: int) -> None:
+        today = datetime.now(tz=config.TZ).date()
+        if self._requests_day != today:
+            self._requests_day = today
+            self.requests_today = 0
+        self.requests_today += n
+
 
 state = RealtimeState()
+
+
+def mark_activity(map_interest: bool = False) -> None:
+    """Kallas av sidor/API nar nagon anvander appen - styr pollningen."""
+    now = time.time()
+    state.last_activity = now
+    if map_interest:
+        state.map_activity = now
+    if not state.fresh and now >= state.backoff_until:
+        state.wake.set()
 
 
 def _parse_trip_updates(payload: bytes) -> dict[str, dict]:
@@ -118,23 +151,53 @@ def _parse_vehicle_positions(payload: bytes) -> dict[str, dict]:
 
 async def poll_loop():
     headers = {"Accept-Encoding": "gzip"}
+    alerts_fetched_at = 0.0
     async with httpx.AsyncClient(timeout=15, headers=headers) as client:
+
+        async def fetch(feed: str) -> bytes:
+            resp = await client.get(f"{config.GTFS_RT_BASE}/{feed}.pb",
+                                    params={"key": config.TRAFIKLAB_RT_KEY})
+            resp.raise_for_status()
+            return resp.content
+
         while True:
+            now = time.time()
+            idle = now - state.last_activity > ACTIVE_WINDOW
+            if idle or now < state.backoff_until:
+                # Ingen anvander appen (eller kvoten ar strypt) - polla inte.
+                # mark_activity() vacker oss direkt nar nagon kommer.
+                state.wake.clear()
+                try:
+                    await asyncio.wait_for(state.wake.wait(),
+                                           timeout=max(10.0, state.backoff_until - now))
+                except TimeoutError:
+                    pass
+                continue
+
+            want_alerts = now - alerts_fetched_at > ALERT_INTERVAL
+            want_vehicles = now - state.map_activity < ACTIVE_WINDOW
+            feeds = ["TripUpdates"] + (["ServiceAlerts"] if want_alerts else []) \
+                + (["VehiclePositions"] if want_vehicles else [])
             try:
-                tu, sa, vp = await asyncio.gather(
-                    client.get(f"{config.GTFS_RT_BASE}/TripUpdates.pb",
-                               params={"key": config.TRAFIKLAB_RT_KEY}),
-                    client.get(f"{config.GTFS_RT_BASE}/ServiceAlerts.pb",
-                               params={"key": config.TRAFIKLAB_RT_KEY}),
-                    client.get(f"{config.GTFS_RT_BASE}/VehiclePositions.pb",
-                               params={"key": config.TRAFIKLAB_RT_KEY}))
-                tu.raise_for_status()
-                sa.raise_for_status()
-                vp.raise_for_status()
-                state.trip_updates = _parse_trip_updates(tu.content)
-                state.alerts = _parse_alerts(sa.content)
-                state.vehicle_positions = _parse_vehicle_positions(vp.content)
+                results = await asyncio.gather(*(fetch(f) for f in feeds))
+                state.count_requests(len(feeds))
+                payload = dict(zip(feeds, results))
+                state.trip_updates = _parse_trip_updates(payload["TripUpdates"])
+                if "ServiceAlerts" in payload:
+                    state.alerts = _parse_alerts(payload["ServiceAlerts"])
+                    alerts_fetched_at = now
+                if "VehiclePositions" in payload:
+                    state.vehicle_positions = _parse_vehicle_positions(
+                        payload["VehiclePositions"])
                 state.updated_at = time.time()
+            except httpx.HTTPStatusError as exc:
+                state.count_requests(len(feeds))
+                if exc.response.status_code == 429:
+                    state.backoff_until = time.time() + BACKOFF_429
+                    log.warning("GTFS-RT-kvoten ar strypt (429) - pausar pollning "
+                                "%d min", BACKOFF_429 // 60)
+                else:
+                    log.warning("GTFS-RT-hamtning misslyckades: %s", exc)
             except Exception as exc:
                 # Behall gammalt state; `fresh` slar over till False av sig sjalv
                 log.warning("GTFS-RT-hamtning misslyckades: %s", exc)

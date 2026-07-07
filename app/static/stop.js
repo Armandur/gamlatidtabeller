@@ -52,7 +52,8 @@
 
   async function refresh() {
     try {
-      const data = await apiFetch("/api/hallplats/" + encodeURIComponent(window.STATION_ID) + "/avgangar");
+      const data = await apiFetch("/api/hallplats/" + encodeURIComponent(window.STATION_ID) +
+        "/avgangar" + (map ? "?karta=1" : ""));
       render(data);
     } catch (err) {
       // Behall senast visade lista; ny chans vid nasta tick
