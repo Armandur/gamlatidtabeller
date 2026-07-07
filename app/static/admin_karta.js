@@ -4,10 +4,16 @@
 (function () {
   const statusEl = document.getElementById("karta-status");
   const map = L.map("lanskarta").setView([62.8, 17.6], 8);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  const osm = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   }).addTo(map);
+  const satellit = L.tileLayer(
+    "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+      maxZoom: 19,
+      attribution: "Bilder &copy; Esri, Maxar, Earthstar Geographics",
+    });
+  L.control.layers({ "Karta": osm, "Satellit": satellit }).addTo(map);
   const layer = L.layerGroup().addTo(map);
   let fitted = false;
 
