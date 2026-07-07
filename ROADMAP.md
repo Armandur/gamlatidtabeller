@@ -36,4 +36,4 @@
 - [x] "Hitta närmaste hållplats" på startsidan (geolocation på knapptryck,
       avstånd beräknas i webbläsaren, kräver HTTPS i produktion)
 - [x] VehiclePositions: "Var är bussen?"-karta på hållplatssidan
-      (branch `vehiclepositions`, mergas efter test i verklig trafik)
+      (mergad till main 2026-07-07; livetest väntar på återställd RT-kvot)
