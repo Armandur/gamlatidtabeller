@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app import config, gtfs_import, settings_store
-from app.database import DatabaseMissing, get_meta
+from app.database import DatabaseMissing, get_meta, open_db
 from app.deps import templates
 from app.routes import studio
 from app.services import realtime
@@ -170,3 +170,54 @@ def save_settings(request: Request, csrf: str = Form(...),
         _run_action("Linjeändring: bygg om databasen från cachad zip",
                     gtfs_import.build_database)
     return RedirectResponse("/", 302)
+
+
+@app.get("/karta")
+def vehicle_map(request: Request):
+    """Diagnostikkarta: alla fordon i lanet ur VehiclePositions-feeden."""
+    if not _logged_in(request):
+        return RedirectResponse("/logga-in", 302)
+    return templates.TemplateResponse(request, "admin/karta.html", {"request": request})
+
+
+@app.get("/api/fordon")
+def all_vehicles(request: Request):
+    """Alla fordonspositioner just nu, berikade med linje/destination
+    dar turen finns i var databas. Linjenummer for ovriga harleds ur
+    trip_id-formatet 220LLL... (bekraftat monster i Din Tur-feeden)."""
+    if not _logged_in(request):
+        raise HTTPException(401, "Inte inloggad")
+    realtime.mark_activity(map_interest=True)
+
+    positions = dict(realtime.state.vehicle_positions)
+    known = {}
+    if positions:
+        try:
+            with open_db() as db:
+                marks = ",".join("?" * len(positions))
+                for r in db.execute(
+                        f"SELECT t.trip_id, r.short_name, r.is_local, t.destination "
+                        f"FROM trips t JOIN routes r ON r.route_id = t.route_id "
+                        f"WHERE t.trip_id IN ({marks})", list(positions)):
+                    known[r["trip_id"]] = r
+        except DatabaseMissing:
+            pass
+
+    now = time.time()
+    vehicles = []
+    for tid, p in positions.items():
+        row = known.get(tid)
+        line = row["short_name"] if row else (tid[3:6].lstrip("0") or "?")
+        vehicles.append({
+            "trip_id": tid,
+            "line": line,
+            "destination": row["destination"] if row else "",
+            "local": bool(row and row["is_local"]),
+            "known": row is not None,
+            "lat": p["lat"], "lon": p["lon"],
+            "age_s": int(now - p["ts"]) if p["ts"] else None,
+        })
+    return {"fresh": realtime.state.fresh,
+            "requests_today": realtime.state.requests_today,
+            "generated_at": datetime.now(tz=config.TZ).strftime("%H:%M:%S"),
+            "vehicles": vehicles}

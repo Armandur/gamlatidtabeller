@@ -1,0 +1,24 @@
+{% extends "admin/base.html" %}
+{% block title %}Fordonskarta - Admin{% endblock %}
+{% block content %}
+<div class="admin-topp">
+  <h1>Fordonskarta</h1>
+  <a class="knapp sekundar" href="/">Till driftläget</a>
+</div>
+<p id="karta-status" class="uppdaterad" role="status" aria-live="polite">Laddar ...</p>
+<div id="lanskarta"></div>
+<p class="hjalptext">Alla fordon i Din Turs VehiclePositions-feed. Blå bricka = våra lokala
+linjer, vit = övriga (linjenumret härlett ur turens id när turen inte finns i vår databas).
+Uppdateras var 20:e sekund så länge sidan är öppen - varje uppdatering gör API-anrop
+mot Trafiklab, så lämna inte fliken öppen i onödan.</p>
+<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<style>
+#lanskarta {
+  height: 70vh;
+  border: 1px solid var(--ljusgra);
+  border-radius: 8px;
+}
+</style>
+<script src="/static/vendor/leaflet/leaflet.js"></script>
+<script src="/static/admin_karta.js"></script>
+{% endblock %}
